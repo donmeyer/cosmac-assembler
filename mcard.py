@@ -441,25 +441,7 @@ def runAction():
 	setRunMode()
 	
 	
-	
-	
-def getAChar():
-	return 'x'
-	
-	
-# Returns a command line string or None to indicate no commands, plus a boolean that will be true to end term mode
-def getCmdline():
-	return ( line, False )
-	while True:
-		c = getAChar()
-		if c == '=':
-			break
-		elif c == 'b':
-			# Backspace
-			pass
-	
-	
-	
+		
 def terminalAction():
 	global serialPort
 	openSerialPort()
