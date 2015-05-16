@@ -463,7 +463,11 @@ def getCmdline():
 def terminalAction():
 	global serialPort
 	openSerialPort()
-	print "Term!!!"
+	print "1802 Membership Card Loader Terminal Mode"
+	print "Enter an 'x' or 'q' followed by Enter to quit."
+	print "All commands that are understood by the Arduino 1802 Loader can be entered."
+	print "In addition, you can download a file toe the 1802 by using the '@' command."
+	print "(e.g.  >@test.hex)"
 
 	while True:
 		sys.stdout.write( ">" )
@@ -472,32 +476,35 @@ def terminalAction():
 		if line[0] == 'x' or line[0] == 'q':
 			# End terminal mode
 			return
-
-		sendCmd( line, ack=False )
-	
-		serialPort.timeout = serialAckTimeout	# Plenty of time for a response
-		c = serialPort.read(1)
-		# If first character is an "ack", ignore it.
-		if c == '!':
-			logDebug( "Got bang")
-		elif c == '#':
-			print( "ERROR" )
-		elif c == None:
-			print( "*** No response to command" )
+		elif line[0] == '@':
+			filename = line[1:].rstrip()
+			downloadAction( filename )
 		else:
-			sys.stdout.write( c )
-			serialPort.timeout = 0.5	# hex characters only other option - don't wait too long once they stop coming
-			while True:
-				logDebug( "read 1 char" )
-				c = serialPort.read(1)
-				if c == None or c == "":
-					logDebug( "read none" )
-					sys.stdout.write( '\n' )
-					break
-				else:
-					logDebug( "read %d chars '%c'" % ( len(c), c[0] ) )
-					sys.stdout.write( c )
-				sys.stdout.flush()
+			sendCmd( line, ack=False )
+	
+			serialPort.timeout = serialAckTimeout	# Plenty of time for a response
+			c = serialPort.read(1)
+			# If first character is an "ack", ignore it.
+			if c == '!':
+				logDebug( "Got bang")
+			elif c == '#':
+				print( "ERROR" )
+			elif c == None:
+				print( "*** No response to command" )
+			else:
+				sys.stdout.write( c )
+				serialPort.timeout = 0.5	# hex characters only other option - don't wait too long once they stop coming
+				while True:
+					logDebug( "read 1 char" )
+					c = serialPort.read(1)
+					if c == None or c == "":
+						logDebug( "read none" )
+						sys.stdout.write( '\n' )
+						break
+					else:
+						logDebug( "read %d chars '%c'" % ( len(c), c[0] ) )
+						sys.stdout.write( c )
+					sys.stdout.flush()
 					
 				
 
