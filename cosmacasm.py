@@ -68,36 +68,38 @@ class Symbol:
 		self.type = type
 		self.value = None
 		self.body = None
-		self.expHadAddr = False
+		self.is_addr = False
 
 	def __repr__(self):
 		if self.value == None:
 			v = "*UNRESOLVED*"
 		else:
-			if self.type == "addr":
+			if self.is_addr:
 				v = "0x%04X" % self.value
 			elif self.type == "equ":
 				v = "%d" % self.value
 			else:
 				v = value
-		return "{ %s  %d %s  %d  %s  %s }" % \
-			( self.name, self.lineNumber, self.type, self.isAddr(), v, self.body )
+		if self.isAddr():
+			adrstr = "addr"
+		else:
+			adrstr = "    "
+		return "{ %16s  %4d  %4s  %s  %8s  %s }" % \
+			( self.name, self.lineNumber, self.type, adrstr, v, self.body )
 				
 	def isAddr( self ):
-		if self.type == "addr" or self.expHadAddr == True:
-			return True
-		return False
+		return self.is_addr
 
 	# Returns true if symbol was resolved
 	def resolve( self ):
 		if self.value == None:
 			if self.body == None:
 				bailout( "Trying to resolve symbol '%s', but no body" % self.name )
-			what, self.value, ebytes = calcExpression( self.lineNumber, self.body, symRequired=False )
+			self.value, isAddr, ebytes = calcExpression( self.lineNumber, self.body )
 			if self.value == None:
 				return False
-			if what == "sym":
-				self.expHadAddr = True
+			if isAddr:
+				self.is_addr = True
 		return True
 		
 
@@ -119,6 +121,7 @@ def addSymbol( sym ):
 def addSymbolAddress( name, value ):
 	sym = Symbol( name, "addr" )
 	sym.value = value
+	sym.is_addr = True
 	addSymbol( sym )
 	
 	
@@ -133,6 +136,12 @@ def addSymbolEquate( name, body ):
 	sym.body = body
 	addSymbol( sym )
 
+
+
+def confirmSymbolAddress( name, value ):
+	sym = symbols[name]
+	if value != sym.value:
+		bailout( "Line: %d   Label '%s' had different address in each pass.  Pass #1=0x%04X, Pass #2=0x%04X" % (lineNumber, sym.value, value ) )
 
 
 #
@@ -165,7 +174,7 @@ def resolveSymbols():
 				for key in symbols:
 					sym = symbols[key]
 					if sym.value == None:
-						reportError( "*** Line: %d  unable to resolve symbol '%s', expression is '%s'" % ( sym.lineNumber, key, sym.body ) )
+						print( "*** Line: %d  unable to resolve symbol '%s', expression is '%s'" % ( sym.lineNumber, key, sym.body ) )
 				sys.exit( -1 )
 			
 		lastFailCount = failCount
@@ -187,6 +196,11 @@ def dumpSymbols():
 # Obtain the value for a single token.
 #
 # Returns a tuple of ( sym/hex/dec, value, bytes ). Will return None if a value could not be obtained.
+#
+# If "hex", value will be set if 4 or less digits not including an optional leading zero. The byte array is always set.
+# If "dec", value will be set, bytes will not.
+# if "sym", value will be the symbol object itself.
+# If none of the above, all tuple members will be None.
 # 
 # Examples:
 #   7EH
@@ -198,8 +212,6 @@ def dumpSymbols():
 def obtainTokenValue( lineNumber, token ):
 	global symbols
 
-	# addrFlag = False
-	
 	m = re.match( r'([0-9][0-9a-fA-F]*)H$', token )
 	if m:
 		# Hex value
@@ -236,18 +248,8 @@ def obtainTokenValue( lineNumber, token ):
 	# Symbol?
 	if symbols.has_key( token ):
 		logDebug( "Obtained symbol value for token '%s'" % token )
-		sym = symbols[token]
-		# Even though I put the mechanisms in place to track an address 'type' through the system,
-		# I think we treat any symbol as an address in reality.
-		# return ( sym.value, sym.isAddr() )
-		v = sym.value
-		# if v == None and passNumber == 1:
-		# 	return( "sym", 0, None )
-		
-		return ( "sym", v, None )
-
-	# if passNumber == 1:
-	# 	return( "sym", 0, None )
+		sym = symbols[token]		
+		return ( "sym", sym, None )
 
 	return ( None, None, None )
 
@@ -255,10 +257,11 @@ def obtainTokenValue( lineNumber, token ):
 #
 # Parses a constant, symbol, or equation and returns the numeric value.
 #
-# Returns a tuple of ( sym/hex/dec, value, bytes ). Will return None if a value could not be obtained.
+# Returns a tuple of ( value, addrFlag, bytes ). Will return None if a value could not be obtained.
 #
-# If an address symbol is used, returns a flag indicating that, so an appropriate size can be used
-# as neccessary.
+# If no value available, returns None.
+# If any component was an address, the addres flag will be true.
+# Bytes is returned only if the the expression was a single hex token.
 #
 # Examples:
 #   9
@@ -269,40 +272,39 @@ def obtainTokenValue( lineNumber, token ):
 #   BSCR-8
 #   ROMVAR + 1AH
 #
-def calcExpression( lineNumber, body, symRequired=False ):
+def calcExpression( lineNumber, body ):
 	value = None
 	ebytes = None
-	symFlag = False
+	addrFlag = False
 	op = "new"
 	
 	while True:
 		m = re.match( r'\W*(\w+)', body )
 		if m:
 			s = m.group(1)
+
+			if op == "idle":
+				bailout( "Line: %d   illegal operator '%s'" % ( lineNumber, s ) )
+			
 			what, v, ebytes = obtainTokenValue( lineNumber, s )
 
 			if what == None:
 				logDebug( "calc expression operand '%s' had no value" % s )
-				if symRequired == True:
-					bailout( "Line: %d  Expression operand '%s' is undefined." % ( lineNumber, s ) )
+				return ( None, None, None )		# Could not obtain a value
+			elif what == "sym":
+				# 2nd member of tuple is the symbol object in this case
+				sym = v
+				if sym.value == None:
+					# Unresolved symbol
+					logDebug( "calc expression symbol '%s' had no value" % s )
 					return ( None, None, None )		# Could not obtain a value
 				else:
-					what = "sym"
-					v = 0
-
-			if what == "sym" and v == None:
-				logDebug( "calc expression sym operand had no value" )
-				if symRequired == True:
-					return ( what, None, None )		# Could not obtain a value
-				else:
-					logDebug( "but that's ok" )
-					v = 0
+					v = sym.value		# Use the value of the symbol
+					if sym.isAddr():
+						addrFlag = True
 
 			logDebug( "calc expression operand type=%s, operator is %s" % ( what, op ) )
 
-			if what == "sym":
-				symFlag = True	# based on a symbol, even if there is some math
-				
 			if op == "new":
 				value = v
 			elif op == "+":
@@ -324,8 +326,8 @@ def calcExpression( lineNumber, body, symRequired=False ):
 			m = re.match( r'\W*([\-\+\*\/])', body )
 			if m:
 				# Found a valid math operator
-				if ebytes:
-					bailout( "Line: %d   Cannot do math on a hex sequence" % ( lineNumber ) )
+				if ebytes and len(ebytes) > 2:
+					bailout( "Line: %d   Cannot do math on a long hex sequence" % ( lineNumber ) )
 				s = m.group(1)
 				op = s
 				logDebug( "Bango '%s' %d %d" % (s, m.start(), m.end()) )
@@ -336,10 +338,7 @@ def calcExpression( lineNumber, body, symRequired=False ):
 	if op != "idle":
 		bailout( "Line: %d   Missing argument after '%s' operator" % ( lineNumber, op ) )
 		
-	# what = "dec"	# sure, why not
-	if symFlag:
-		what = "sym"
-	return ( what, value, ebytes )
+	return ( value, addrFlag, ebytes )
 	
 	
 
@@ -380,16 +379,16 @@ def assembleDC( body ):
 			for c in chars:
 				bytes.append( c )
 		else:
-			if passNumber == 1:
-				symRequired = False
-			else:
-				symRequired = True
-			what, v, ebytes = calcExpression( lineNumber, chunk, symRequired=symRequired )
-			# print( what, v, ebytes )
-			if what == "sym":
-				# if len(bytes) != 2:
-				# 	bailout( "Internal error 7" )
-				# bytes.extend( ebytes )
+			v, isAddr, ebytes = calcExpression( lineNumber, chunk )
+			if v == None:
+				if passNumber == 1:
+					# Forward ref ok for 1st pass, assume it's an address.
+					v = 0
+					isAddr = True
+				else:
+					bailout( "Line: %d   Unresolved expression '%s'" % ( lineNumber, chunk ) )
+
+			if isAddr:
 				high = v>>8 & 0xFF
 				low = v & 0xFF
 				bytes.append( high )
@@ -655,9 +654,9 @@ def processOrigin( line, body ):
 		body = body.rstrip()
 	
 	
-	what, v, ebytes = calcExpression( lineNumber, body, symRequired=True )
+	v, isAddr, ebytes = calcExpression( lineNumber, body )
 	if v == None:
-		bailout( "LINE: %d  Unable to resolve origin address" % lineNumber )
+		bailout( "Line: %d  Unable to resolve origin address for '%s'" % ( lineNumber, body ) )
 	
 	if passNumber == 2:
 		emitListing( "%04X ;              %04d   %s" % (address, lineNumber, line) )
@@ -717,6 +716,9 @@ def processLine( line ):
 		if passNumber == 1:
 			# Add it to the symbol table!
 			addSymbolAddress( label, address )
+		elif passNumber == 2:
+			# Make sure the address matches, for sanity checking.
+			confirmSymbolAddress( label, address )
 	else:
 		body = line.lstrip()
 		
