@@ -111,10 +111,7 @@ def addSymbol( sym ):
 	global symbols
 	if symbols.has_key( sym.name ):
 		daddr = symbols[sym.name].lineNumber
-		# TODO: Once we confirm that we build the old FIG source correctly, make this an error!
-		# bailout( "Line: %d   Duplicate symbol '%s'.  Original definition at line %d" % ( lineNumber, sym.name, daddr ) )
-		print( "Line: %d   Duplicate symbol '%s'.  Original definition at line %d" % ( lineNumber, sym.name, daddr ) )
-		return
+		bailout( "Line: %d   Duplicate symbol '%s'.  Original definition at line %d" % ( lineNumber, sym.name, daddr ) )
 	symbols[sym.name] = sym
 
 
@@ -147,9 +144,7 @@ def addSymbolEquate( name, body ):
 def confirmSymbolAddress( name, value ):
 	sym = symbols[name]
 	if value != sym.value:
-		# TODO: after we build FIG source to match, make this an error
-		# bailout( "Line: %d   Label '%s' had different address in each pass.  Pass #1=0x%04X, Pass #2=0x%04X" % (lineNumber, name, sym.value, value ) )
-		print( "Line: %d   Label '%s' had different address in each pass.  Pass #1=0x%04X, Pass #2=0x%04X" % (lineNumber, name, sym.value, value ) )
+		bailout( "Line: %d   Label '%s' had different address in each pass.  Pass #1=0x%04X, Pass #2=0x%04X" % (lineNumber, name, sym.value, value ) )
 
 
 #
@@ -685,7 +680,6 @@ def assembleChunk( chunk ):
 #
 def emitCode( line, startAddr, bytes ):
 	global lineNumber
-	# TODO: implement line break feature
 	hexStr = ""
 	overflow = False
 	for byte in bytes:
@@ -709,7 +703,8 @@ def emitCode( line, startAddr, bytes ):
 		else:
 			emitListing( "%04X %s" % ( startAddr, hexStr ) )
 				
-	# print( "Code 0x%04X  %s --- %s" % ( startAddr, hexStr, line ) )
+	# TODO: Write a hex file. Both a complete padded file as well as S-Records etc.
+	# TODO: Check the generated code size against the size limiot option.
 	
 
 
