@@ -12,6 +12,12 @@
 #
 # ------------------------------------------
 #
+# On pass 1 we usually don't care about the actual values of symbols, or even if they exist yet.
+# There are two exceptions to this rule:
+#  1) Declared constants ("DC"), where
+#  2) Origin statements
+#
+# For declared constants ("DC"), we assume any symbol is an address. ** true???
 
 
 import os, sys, csv, datetime, time
@@ -23,7 +29,7 @@ import string
 
 
 
-listDest = None
+listingDest = None
 
 hexDest = None
 
@@ -134,9 +140,15 @@ def addSymbolEquate( name, body ):
 #
 def resolveSymbols():
 	global symbols
+
+	if options.verbose > 1:
+		print( "=========================== Resolve Symbols ==============================")
+	elif options.verbose > 0:
+		print "Resolve symbols..."
+		
 	lastFailCount = None
 	while 1:
-		logDebug( "symbols resolution pass" )
+		logDebug( "Symbols resolution pass" )
 		failCount = 0
 		for key in symbols:
 			sym = symbols[key]
@@ -153,7 +165,7 @@ def resolveSymbols():
 				for key in symbols:
 					sym = symbols[key]
 					if sym.value == None:
-						print( "*** Line: %d  unable to resolve symbol '%s', expression is '%s'" % ( sym.lineNumber, key, sym.body ) )
+						reportError( "*** Line: %d  unable to resolve symbol '%s', expression is '%s'" % ( sym.lineNumber, key, sym.body ) )
 				sys.exit( -1 )
 			
 		lastFailCount = failCount
@@ -161,12 +173,13 @@ def resolveSymbols():
 	
 		
 
-def dumpSymbols( dest ):
-	global symbols
+def dumpSymbols():
+	global symbols, listingDest
+	print>>listingDest, "\n\n------------------- Symbols by Name ----------------------"
 	keys = symbols.keys()
 	keys.sort()
 	for key in keys:
-		print( "%16s : %s" % ( key, symbols[key] ) )
+		print>>listingDest, "%16s : %s" % ( key, symbols[key] )
 	
 	
 
@@ -395,18 +408,186 @@ def assembleDC( body ):
 	
 	
 	
+def parseRegister( arg ):
+	m = re.match( r'^R([0-9A-F])', arg )
+	if m:
+		return int(m.group(1),16)
+	else:
+		bailout( "Line: %d  Invalid register '%s'" % (lineNumber, arg) )		
+	
+
+	
+def assembleRegOp( opBase, arg, bytes ):
+	r = parseRegister( arg )
+	bytes.append( opBase + r )
+
+
+# Parses a value or an address. Address must use the A.0() or A.1() formats
+def assembleImmediate( opBase, arg, bytes ):
+	# TODO: parse immaeidta
+	bytes.append( opBase  )
+
+
+# Takes an address argument and emits the LSB
+# If the MSB differs from the immediate args address MSB, declare a branch range error
+def assembleShortBranch( opBase, arg, bytes ):
+	# TODO: parse immaeidta
+	bytes.append( opBase  )
+
+
+# Takes an address argument and emits the MSB and LSB
+def assembleLongBranch( opBase, arg, bytes ):
+	# TODO: parse immaeidta
+	bytes.append( opBase  )
+
+
+# Parses an integer value 1-7
+def assembleOutput( opBase, arg, bytes ):
+	# TODO: parse immaeidta
+	bytes.append( opBase  )
+	
+	
+# Parses an integer value 1-7
+def assembleInput( opBase, arg, bytes ):
+	# TODO: parse immaeidta
+	bytes.append( opBase  )
+	
+	
+	
+#  mnemonic : [opcode], [func]
+#  opcode may be a base opcode used by the func (e.g. DEC)
+#  if no func, opcode used as-is
+opTable = {	"LDN" :   ( 0x00, assembleRegOp ),
+			
+			"INC" :   ( 0x10, assembleRegOp ),
+			"DEC" :   ( 0x20, assembleRegOp ),
+			
+			"BR" :    ( 0x30, assembleShortBranch ),
+			"BQ" :    ( 0x31, assembleShortBranch ),
+			"BZ" :    ( 0x32, assembleShortBranch ),
+			"BDF" :   ( 0x33, assembleShortBranch ),
+			"BPZ" :   ( 0x33, assembleShortBranch ),
+			"BGE" :   ( 0x33, assembleShortBranch ),
+			"B1" :    ( 0x34, assembleShortBranch ),
+			"B2" :    ( 0x35, assembleShortBranch ),
+			"B3" :    ( 0x36, assembleShortBranch ),
+			"B4" :    ( 0x37, assembleShortBranch ),
+			"NBR" :   ( 0x38, None ),
+			"SKP" :   ( 0x38, None ),
+			"BNQ" :   ( 0x39, assembleShortBranch ),
+			"BNZ" :   ( 0x3A, assembleShortBranch ),
+			"BNF" :   ( 0x3B, assembleShortBranch ),
+			"BM" :    ( 0x3B, assembleShortBranch ),
+			"BL" :    ( 0x3B, assembleShortBranch ),
+			"BN1" :   ( 0x3C, assembleShortBranch ),
+			"BN2" :   ( 0x3D, assembleShortBranch ),
+			"BN3" :   ( 0x3E, assembleShortBranch ),
+			"BN4" :   ( 0x3F, assembleShortBranch ),
+			
+			"LDA" :   ( 0x40, assembleRegOp ),
+			
+			"STR" :   ( 0x50, assembleRegOp ),
+
+			"IRX" :   ( 0x60, None ),
+
+			"OUT" :   ( 0x60, assembleOutput ),		# 61 - 67
+													# 68 Reserved
+			"IN" :    ( 0x68, assembleOutput ),		# 69 - 6F
+
+			"RET" :   ( 0x70, None ),
+			"DIS" :   ( 0x71, None ),
+			"LDXA" :  ( 0x72, None ),
+			"STXD" :  ( 0x73, None ),
+			"ADC" :   ( 0x74, None ),
+			"SDB" :   ( 0x75, None ),
+			"SHRC" :  ( 0x76, None ),
+			"RSHR" :  ( 0x76, None ),
+			"SMB" :   ( 0x77, None ),
+			"MARK" :  ( 0x79, None ),
+			"REQ" :   ( 0x7A, None ),
+			"SEQ" :   ( 0x7B, None ),
+			"SDBI" :  ( 0x7D, assembleImmediate ),
+			"SHLC" :  ( 0x7E, None ),
+			"RSHL" :  ( 0x7E, None ),
+			"SMBI" :  ( 0x7F, assembleImmediate ),
+			
+			"GLO" :   ( 0x80, assembleRegOp ),
+			"GHI" :   ( 0x90, assembleRegOp ),
+			
+			"PLO" :   ( 0xA0, assembleRegOp ),
+			"PHI" :   ( 0xB0, assembleRegOp ),
+
+			"LBR" :   ( 0xC0, assembleLongBranch ),
+			"LBQ" :   ( 0xC1, assembleLongBranch ),
+			"LBZ" :   ( 0xC2, assembleLongBranch ),
+			"LBDF" :  ( 0xC3, assembleLongBranch ),
+			"NOP" :   ( 0xC4, None ),
+			"LSNQ" :  ( 0xC5, None ),
+			"LSNZ" :  ( 0xC6, None ),
+			"LSNF" :  ( 0xC7, None ),
+			"LSKP" :  ( 0xC8, None ),
+			"NLBR" :  ( 0xC8, None ),
+			"LBNQ" :  ( 0xC9, assembleLongBranch ),
+			"LBNZ" :  ( 0xCA, assembleLongBranch ),
+			"LBNF" :  ( 0xCB, assembleLongBranch ),
+			"LSIE" :  ( 0xCC, None ),
+			"LSQ" :   ( 0xCD, None ),
+			"LSZ" :   ( 0xCE, None ),
+			"LSDF" :  ( 0xCF, None ),
+
+			"SEP" :   ( 0xD0, assembleRegOp ),
+			
+			"SEX" :   ( 0xE0, assembleRegOp ),
+
+			"LDX" :   ( 0xF0, None ),
+			"OR" :    ( 0xF1, None ),
+			"AND" :   ( 0xF2, None ),
+			"XOR" :   ( 0xF3, None ),
+			"ADD" :   ( 0xF4, None ),
+			"SD" :    ( 0xF5, None ),
+			"SHR" :   ( 0xF6, None ),
+			"LDI" :   ( 0xF8, assembleImmediate ),
+			"ORI" :   ( 0xF9, assembleImmediate ),
+			"ANI" :   ( 0xFA, assembleImmediate ),
+			"XRI" :   ( 0xFB, assembleImmediate ),
+			"ADI" :   ( 0xFC, assembleImmediate ),
+			"SDI" :   ( 0xFD, assembleImmediate ),
+			"SHL" :   ( 0xFE, None ),
+			"SMI" :   ( 0xFF, assembleImmediate )
+}
+
+
 # Returns a tuple of starting address and a byte array of the machine code.
 def assembleChunk( chunk ):
-	if chunk[:3] == "DC ":
-		return assembleDC( chunk[3:] )
-	
 	global address
-	startAddr = address
+	
+	# Get the opcode and optional argument
+	m = re.match( r'^(\w+)\s*(.*)', chunk )
+	if m == None:
+		bailout( "Line: %d  Invalid line '%s'" % (lineNumber, chunk) )		
+
 	bytes = bytearray()
-	bytes.append( 0x55 )
-	bytes.append( 0xAA )
-	address += len(bytes)
-	return ( startAddr, bytes )
+	startAddr = address
+		
+	opcode = m.group(1)
+	mnemonic = m.group(1)
+	arg = m.group(2)
+	logDebug( "Chunk   opcode '%s'  arg '%s'" % ( opcode, arg ) )
+
+	if opcode == "DC":
+		return assembleDC( arg )
+	else:
+		if opTable.has_key( mnemonic ):
+			opbase, func = opTable[mnemonic]
+			if func:
+				func( opbase, arg, bytes )
+			elif opbase:
+				bytes.append( opbase )	
+		else:
+			bailout( "Line: %d  Invalid mnemonic '%s'" % ( lineNumber, chunk ) )
+				
+		address += len(bytes)
+		return ( startAddr, bytes )
 
 
 
@@ -429,18 +610,18 @@ def emitCode( line, startAddr, bytes ):
 		if len(hexStr) >= (BYTES_PER_LINE * 2):
 			hexStr += ';'
 			if overflow == False:
-				print( "%04X %-14s %04d  %s" % ( startAddr, hexStr, lineNumber, line ) )
+				emitListing( "%04X %-14s %04d  %s" % ( startAddr, hexStr, lineNumber, line ) )
 				hexStr = ""
 				overflow = True
 			else:
-				print( "%04X %-14s" % ( startAddr, hexStr ) )
+				emitListing( "%04X %-14s" % ( startAddr, hexStr ) )
 				hexStr = ""
 	if hexStr != "":
 		hexStr += ';'
 		if overflow == False:
-			print( "%04X %-14s %04d  %s" % ( startAddr, hexStr, lineNumber, line ) )
+			emitListing( "%04X %-14s %04d  %s" % ( startAddr, hexStr, lineNumber, line ) )
 		else:
-			print( "%04X %-14s" % ( startAddr, hexStr ) )
+			emitListing( "%04X %-14s" % ( startAddr, hexStr ) )
 				
 	# print( "Code 0x%04X  %s --- %s" % ( startAddr, hexStr, line ) )
 	
@@ -459,7 +640,7 @@ def processEquate( line, label, body ):
 	if passNumber == 1:
 		addSymbolEquate( label, body )
 	elif passNumber == 2:
-		print( "%04X ;              %04d   %s" % (address, lineNumber, line) )
+		emitListing( "%04X ;              %04d   %s" % (address, lineNumber, line) )
 
 
 
@@ -478,7 +659,8 @@ def processOrigin( line, body ):
 	if v == None:
 		bailout( "LINE: %d  Unable to resolve origin address" % lineNumber )
 	
-	print( "%04X ;              %04d   %s" % (address, lineNumber, line) )
+	if passNumber == 2:
+		emitListing( "%04X ;              %04d   %s" % (address, lineNumber, line) )
 	address = v
 	
 	
@@ -486,7 +668,7 @@ def processOrigin( line, body ):
 def processNoCode( line, addr ):
 	global lineNumber
 	if passNumber == 2:
-		print( "%04X ;              %04d  %s" % (addr, lineNumber, line) )
+		emitListing( "%04X ;              %04d  %s" % (addr, lineNumber, line) )
 	
 	
 	
@@ -590,7 +772,12 @@ def processLine( line ):
 #
 def firstPass( lines ):
 	global passNumber, lineNumber
-	logDebug( "=========================== First Pass ==============================")
+
+	if options.verbose > 1:
+		print( "=========================== First Pass ==============================")
+	elif options.verbose > 0:
+		print "First Pass..."
+
 	passNumber = 1
 	lineNumber = 0
 	for line in lines:
@@ -607,7 +794,12 @@ def firstPass( lines ):
 #
 def secondPass( lines ):
 	global passNumber, lineNumber, address
-	logDebug( "=========================== Second Pass ==============================")
+	
+	if options.verbose > 1:
+		print( "=========================== Second Pass ==============================")
+	elif options.verbose > 0:
+		print "Second Pass..."
+	
 	passNumber = 2
 	lineNumber = 0
 	address = 0
@@ -623,7 +815,7 @@ def assembleFile( src ):
 	firstPass( lines )
 	resolveSymbols()
 	if options.verbose > 1:
-		dumpSymbols( None )
+		dumpSymbols()
 	secondPass( lines )
 
 
@@ -637,19 +829,19 @@ def process( filename ):
 	
 	src = open( filename, 'r' )
 
-	listDest = open( "foo.lst", 'w' )
-
-	hexDest = open( "foo.hex", 'w' )
-
 	assembleFile( src )
 
 	src.close()
-	
-	listDest.close()
-	
-	hexDest.close()
+		
 	
 	
+def emitListing( text ):
+	global listingDest
+	
+	if listingDest:
+		print>>listingDest, text
+
+
 
 #----------------------------------------------------------------
 #
@@ -674,7 +866,7 @@ def bailout( msg ):
 
 
 def main( argv ):
-	global options
+	global options, listingDest, hexDest
 
 	usage = """"%prog [options] <file>
 	File is assembly source."""
@@ -685,13 +877,9 @@ def main( argv ):
 						action="store", type="int", dest="size", default=None,
 						help="Maximum size of output. Error if this size is exceeded. (optional)" )
 	
-	parser.add_option( "-o", "--output",
-						action="store", type="string", dest="output", default=None,
-						help="Output filename. (optional)" )
-	
-	parser.add_option( "-l", "--list",
-						action="store_true", dest="list", default=False,
-						help="Generate listing" )
+	parser.add_option( "-d", "--display",
+						action="store_true", dest="display", default=False,
+						help="Display output on terminal. No files are produced." )
 	
 	parser.add_option( "-n", "--noaction",
 						action="store_true", dest="noaction", default=False,
@@ -722,9 +910,26 @@ def main( argv ):
 		print main.__doc__
 		sys.exit(1)
 
+	rootname, ext = os.path.splitext( filename )
+	
+	if options.display == True:
+		listingDest = sys.stdout
+		hexDest = sys.stdout
+	else:
+		listingFilename = rootname + ".lst"
+		listingDest = open( listingFilename, 'w' )
+		hexFilename = rootname + ".hex"
+		hexDest = open( hexFilename, 'w' )
+
 	process( filename )
 	
-	dumpSymbols( None )
+	dumpSymbols()
+
+	if listingDest:
+		listingDest.close()
+	
+	if hexDest:
+		hexDest.close()
 
 
 
