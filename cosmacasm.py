@@ -95,7 +95,7 @@ class Symbol:
 		if self.value == None:
 			if self.body == None:
 				bailout( "Trying to resolve symbol '%s', but no body" % self.name )
-			self.value, isAddr, ebytes = calcExpression( self.lineNumber, self.body )
+			self.value, isAddr, litFlag, ebytes = calcExpression( self.lineNumber, self.body )
 			if self.value == None:
 				return False
 			if isAddr:
@@ -109,6 +109,12 @@ class Symbol:
 #
 def addSymbol( sym ):
 	global symbols
+	if symbols.has_key( sym.name ):
+		daddr = symbols[sym.name].lineNumber
+		# TODO: Once we confirm that we build the old FIG source correctly, make this an error!
+		# bailout( "Line: %d   Duplicate symbol '%s'.  Original definition at line %d" % ( lineNumber, sym.name, daddr ) )
+		print( "Line: %d   Duplicate symbol '%s'.  Original definition at line %d" % ( lineNumber, sym.name, daddr ) )
+		return
 	symbols[sym.name] = sym
 
 
@@ -141,7 +147,9 @@ def addSymbolEquate( name, body ):
 def confirmSymbolAddress( name, value ):
 	sym = symbols[name]
 	if value != sym.value:
-		bailout( "Line: %d   Label '%s' had different address in each pass.  Pass #1=0x%04X, Pass #2=0x%04X" % (lineNumber, sym.value, value ) )
+		# TODO: after we build FIG source to match, make this an error
+		# bailout( "Line: %d   Label '%s' had different address in each pass.  Pass #1=0x%04X, Pass #2=0x%04X" % (lineNumber, name, sym.value, value ) )
+		print( "Line: %d   Label '%s' had different address in each pass.  Pass #1=0x%04X, Pass #2=0x%04X" % (lineNumber, name, sym.value, value ) )
 
 
 #
@@ -210,7 +218,14 @@ def dumpSymbols():
 #   0AA12AA55FFH
 #
 def obtainTokenValue( lineNumber, token ):
-	global symbols
+	global symbols, address
+
+	if token == "$":
+		# return a pseudo-sym
+		sym = Symbol( "$", "addr" )
+		sym.value = address
+		sym.is_addr = True
+		return ( "sym", sym, None )
 
 	m = re.match( r'([0-9][0-9a-fA-F]*)H$', token )
 	if m:
@@ -222,10 +237,13 @@ def obtainTokenValue( lineNumber, token ):
 		bytes = bytearray()
 		ss = s
 		if len(s) & 1:
-			# Odd means leading zero
-			if s[0] != '0':
-				bailout( "Line: %d  Malformed hex value '%s'" % ( lineNumber, token ) )
-			ss = s[1:]
+			# Odd might mean leading zero
+			if s[0] == '0':
+				# Remove the leading zero
+				ss = s[1:]
+			else:
+				# Add a leading zero!
+				ss = "0" + ss
 
 		while len(ss) > 0:
 			d = ss[:2]
@@ -238,7 +256,7 @@ def obtainTokenValue( lineNumber, token ):
 		else:
 			return ( "hex", None, bytes )
 	
-	m = re.match( r'([0-9]+)$', token )
+	m = re.match( r'([0-9]+)D?$', token )
 	if m:
 		# Decimal value
 		s = m.group(1)
@@ -257,10 +275,11 @@ def obtainTokenValue( lineNumber, token ):
 #
 # Parses a constant, symbol, or equation and returns the numeric value.
 #
-# Returns a tuple of ( value, addrFlag, bytes ). Will return None if a value could not be obtained.
+# Returns a tuple of ( value, addrFlag, litFlag, bytes ). Will return None if a value could not be obtained.
 #
 # If no value available, returns None.
-# If any component was an address, the addres flag will be true.
+# If any component was an address, the address flag will be true.
+# If any component was a symbol, the literal flag will be false.
 # Bytes is returned only if the the expression was a single hex token.
 #
 # Examples:
@@ -276,13 +295,18 @@ def calcExpression( lineNumber, body ):
 	value = None
 	ebytes = None
 	addrFlag = False
+	litFlag = True
 	op = "new"
 	
+	logDebug( "Calc expression '%s'" % body )
+	
 	while True:
-		m = re.match( r'\W*(\w+)', body )
+		m = re.match( r'\s*([\w\$]+)', body )
 		if m:
 			s = m.group(1)
-
+			
+			logDebug( "Matched '%s'" % s )
+			
 			if op == "idle":
 				bailout( "Line: %d   illegal operator '%s'" % ( lineNumber, s ) )
 			
@@ -290,14 +314,15 @@ def calcExpression( lineNumber, body ):
 
 			if what == None:
 				logDebug( "calc expression operand '%s' had no value" % s )
-				return ( None, None, None )		# Could not obtain a value
+				return ( None, None, False, None )		# Could not obtain a value
 			elif what == "sym":
+				litFlag = False
 				# 2nd member of tuple is the symbol object in this case
 				sym = v
 				if sym.value == None:
 					# Unresolved symbol
 					logDebug( "calc expression symbol '%s' had no value" % s )
-					return ( None, None, None )		# Could not obtain a value
+					return ( None, None, False, None )		# Could not obtain a value
 				else:
 					v = sym.value		# Use the value of the symbol
 					if sym.isAddr():
@@ -322,8 +347,9 @@ def calcExpression( lineNumber, body ):
 			else:
 				logDebug( "Bingo '%s' %d %d = %s" % (s, m.start(), m.end(), bytes) )
 			body = body[m.end():]
+			logDebug( "Look for math operator in '%s'" % body )
 			op = "idle"
-			m = re.match( r'\W*([\-\+\*\/])', body )
+			m = re.match( r'\s*([\-\+\*\/])', body )
 			if m:
 				# Found a valid math operator
 				if ebytes and len(ebytes) > 2:
@@ -338,7 +364,7 @@ def calcExpression( lineNumber, body ):
 	if op != "idle":
 		bailout( "Line: %d   Missing argument after '%s' operator" % ( lineNumber, op ) )
 		
-	return ( value, addrFlag, ebytes )
+	return ( value, addrFlag, litFlag, ebytes )
 	
 	
 
@@ -372,23 +398,31 @@ def assembleDC( body ):
 	chunks = body.split( ',' )
 	for chunk in chunks:
 		chunk = chunk.strip()
-		m = re.match( r"'(\w+)'", chunk )
+		m = re.match( r"'(.+)'", chunk )
 		if m:
 			s = m.group(1)
 			chars = list(s)
 			for c in chars:
 				bytes.append( c )
 		else:
-			v, isAddr, ebytes = calcExpression( lineNumber, chunk )
+			v, isAddr, litFlag, ebytes = calcExpression( lineNumber, chunk )
 			if v == None:
 				if passNumber == 1:
-					# Forward ref ok for 1st pass, assume it's an address.
+					# Forward ref ok for 1st pass
 					v = 0
-					isAddr = True
 				else:
 					bailout( "Line: %d   Unresolved expression '%s'" % ( lineNumber, chunk ) )
 
-			if isAddr:
+			# if ebytes:
+			# 	# Sequence of bytes
+			# 	bytes.extend( ebytes )
+			# else:
+			# 	high = v>>8 & 0xFF
+			# 	low = v & 0xFF
+			# 	bytes.append( high )
+			# 	bytes.append( low )
+
+			if litFlag == False:
 				high = v>>8 & 0xFF
 				low = v & 0xFF
 				bytes.append( high )
@@ -421,36 +455,88 @@ def assembleRegOp( opBase, arg, bytes ):
 	bytes.append( opBase + r )
 
 
+
 # Parses a value or an address. Address must use the A.0() or A.1() formats
 def assembleImmediate( opBase, arg, bytes ):
-	# TODO: parse immaeidta
-	bytes.append( opBase  )
+	if passNumber == 1:
+		bytes.append( 0 )
+		bytes.append( 0 )
+		return
+
+	m = re.match( r'^A.([0-1])\((\S+)\)', arg )
+	if m:
+		# Low or high byte of address
+		v, addrFlag, litFlag, ebytes = calcExpression( lineNumber, m.group(2) )
+		if v == None:
+			bailout( "Line: %d   Invalid argument" % lineNumber )
+		# elif addrFlag == False:
+		# 	bailout( "Line: %d   Argument must be an address" % lineNumber )
+		if m.group(1) == '0':
+			v = v & 0xFF
+		else:
+			v = v>>8 & 0xFF
+	else:		
+		v, addrFlag, litFlag, ebytes = calcExpression( lineNumber, arg )
+		if v == None:
+			bailout( "Line: %d   Invalid argument" % lineNumber )
+		elif v > 0xFF:
+			bailout( "Line: %d   Argument out of range, must be 0-255" % lineNumber )
+
+	bytes.append( opBase )
+	bytes.append( v )
+
 
 
 # Takes an address argument and emits the LSB
 # If the MSB differs from the immediate args address MSB, declare a branch range error
 def assembleShortBranch( opBase, arg, bytes ):
-	# TODO: parse immaeidta
-	bytes.append( opBase  )
+	if passNumber == 1:
+		bytes.append( 0 )
+		bytes.append( 0 )
+		return
+
+	v, addrFlag, litFlag, ebytes = calcExpression( lineNumber, arg )
+	if v == None:
+		bailout( "Line: %d   Invalid argument" % lineNumber )
+	elif addrFlag == False:
+		bailout( "Line: %d   Invalid argument, must be an address" % lineNumber )
+	logDebug( "SB arg addr is 0x%04X" % ( address+1 ) )
+	a_page = (address+1)>>8 & 0xFF
+	b_page = (v)>>8 & 0xFF
+	if a_page != b_page:
+		bailout( "Line: %d   Branch out of range" % lineNumber )
+	bytes.append( opBase )
+	bytes.append( v & 0xFF )
+
 
 
 # Takes an address argument and emits the MSB and LSB
 def assembleLongBranch( opBase, arg, bytes ):
-	# TODO: parse immaeidta
-	bytes.append( opBase  )
+	if passNumber == 1:
+		bytes.append( 0 )
+		bytes.append( 0 )
+		bytes.append( 0 )
+		return
+
+	v, addrFlag, litFlag, ebytes = calcExpression( lineNumber, arg )
+	if v == None:
+		bailout( "Line: %d   Invalid argument" % lineNumber )
+	elif addrFlag == False:
+		bailout( "Line: %d   Invalid argument, must be an address" % lineNumber )
+	bytes.append( opBase )
+	bytes.append( v>>8 & 0xFF )
+	bytes.append( v & 0xFF )
 
 
 # Parses an integer value 1-7
-def assembleOutput( opBase, arg, bytes ):
-	# TODO: parse immaeidta
-	bytes.append( opBase  )
+def assembleInputOutput( opBase, arg, bytes ):
+	m = re.match( r'^([0-7]$)', arg )
+	if m:
+		bytes.append( opBase + int(m.group(1),10) )
+	else:
+		bailout( "Line: %d   IO port must be 1-7" % lineNumber )
 	
-	
-# Parses an integer value 1-7
-def assembleInput( opBase, arg, bytes ):
-	# TODO: parse immaeidta
-	bytes.append( opBase  )
-	
+		
 	
 	
 #  mnemonic : [opcode], [func]
@@ -489,9 +575,9 @@ opTable = {	"LDN" :   ( 0x00, assembleRegOp ),
 
 			"IRX" :   ( 0x60, None ),
 
-			"OUT" :   ( 0x60, assembleOutput ),		# 61 - 67
-													# 68 Reserved
-			"IN" :    ( 0x68, assembleOutput ),		# 69 - 6F
+			"OUT" :   ( 0x60, assembleInputOutput ),	# 61 - 67
+														# 68 Reserved
+			"INP" :    ( 0x68, assembleInputOutput ),	# 69 - 6F
 
 			"RET" :   ( 0x70, None ),
 			"DIS" :   ( 0x71, None ),
@@ -505,6 +591,7 @@ opTable = {	"LDN" :   ( 0x00, assembleRegOp ),
 			"MARK" :  ( 0x79, None ),
 			"REQ" :   ( 0x7A, None ),
 			"SEQ" :   ( 0x7B, None ),
+			"ADCI" :  ( 0x7C, assembleImmediate ),
 			"SDBI" :  ( 0x7D, assembleImmediate ),
 			"SHLC" :  ( 0x7E, None ),
 			"RSHL" :  ( 0x7E, None ),
@@ -545,6 +632,7 @@ opTable = {	"LDN" :   ( 0x00, assembleRegOp ),
 			"ADD" :   ( 0xF4, None ),
 			"SD" :    ( 0xF5, None ),
 			"SHR" :   ( 0xF6, None ),
+			"SM" :    ( 0xF7, None ),
 			"LDI" :   ( 0xF8, assembleImmediate ),
 			"ORI" :   ( 0xF9, assembleImmediate ),
 			"ANI" :   ( 0xFA, assembleImmediate ),
@@ -573,20 +661,17 @@ def assembleChunk( chunk ):
 	arg = m.group(2)
 	logDebug( "Chunk   opcode '%s'  arg '%s'" % ( opcode, arg ) )
 
-	if opcode == "DC":
-		return assembleDC( arg )
+	if opTable.has_key( mnemonic ):
+		opbase, func = opTable[mnemonic]
+		if func:
+			func( opbase, arg, bytes )
+		elif opbase:
+			bytes.append( opbase )	
 	else:
-		if opTable.has_key( mnemonic ):
-			opbase, func = opTable[mnemonic]
-			if func:
-				func( opbase, arg, bytes )
-			elif opbase:
-				bytes.append( opbase )	
-		else:
-			bailout( "Line: %d  Invalid mnemonic '%s'" % ( lineNumber, chunk ) )
-				
-		address += len(bytes)
-		return ( startAddr, bytes )
+		bailout( "Line: %d  Invalid mnemonic '%s'" % ( lineNumber, chunk ) )
+			
+	address += len(bytes)
+	return ( startAddr, bytes )
 
 
 
@@ -613,14 +698,16 @@ def emitCode( line, startAddr, bytes ):
 				hexStr = ""
 				overflow = True
 			else:
-				emitListing( "%04X %-14s" % ( startAddr, hexStr ) )
+				emitListing( "%04X %s" % ( startAddr, hexStr ) )
 				hexStr = ""
+			startAddr += BYTES_PER_LINE
+
 	if hexStr != "":
 		hexStr += ';'
 		if overflow == False:
 			emitListing( "%04X %-14s %04d  %s" % ( startAddr, hexStr, lineNumber, line ) )
 		else:
-			emitListing( "%04X %-14s" % ( startAddr, hexStr ) )
+			emitListing( "%04X %s" % ( startAddr, hexStr ) )
 				
 	# print( "Code 0x%04X  %s --- %s" % ( startAddr, hexStr, line ) )
 	
@@ -639,7 +726,7 @@ def processEquate( line, label, body ):
 	if passNumber == 1:
 		addSymbolEquate( label, body )
 	elif passNumber == 2:
-		emitListing( "%04X ;              %04d   %s" % (address, lineNumber, line) )
+		emitListing( "%04X ;              %04d  %s" % (address, lineNumber, line) )
 
 
 
@@ -654,7 +741,7 @@ def processOrigin( line, body ):
 		body = body.rstrip()
 	
 	
-	v, isAddr, ebytes = calcExpression( lineNumber, body )
+	v, isAddr, litFlag, ebytes = calcExpression( lineNumber, body )
 	if v == None:
 		bailout( "Line: %d  Unable to resolve origin address for '%s'" % ( lineNumber, body ) )
 	
@@ -663,11 +750,30 @@ def processOrigin( line, body ):
 	address = v
 	
 	
+
+def processPage( line ):
+	global address, lineNumber
+
+	if passNumber == 2:
+		emitListing( "%04X ;              %04d  %s" % (address, lineNumber, line) )
+	
+	if address & 0xFF != 0:
+		# Adjust the address to the next 256-byte page start
+		page = address>>8 & 0xFF
+		page += 1
+	
+		address = page<<8
+
+	
+
 	
 def processNoCode( line, addr ):
 	global lineNumber
 	if passNumber == 2:
-		emitListing( "%04X ;              %04d  %s" % (addr, lineNumber, line) )
+		if line == "":
+			emitListing( "%04X ;              %04d" % (addr, lineNumber) )
+		else:
+			emitListing( "%04X ;              %04d  %s" % (addr, lineNumber, line) )
 	
 	
 	
@@ -706,6 +812,15 @@ def processLine( line ):
 		return
 		
 
+	# PAGE?
+	m = re.match( r'^\s+PAGE(.*)', line )
+	if m:
+		# Line is a page directive
+		logDebug( "Page" )
+		processPage( line )
+		return
+		
+
 	# Label?
 	m = re.match( r'^(\w+)\s*(.*)', line )
 	if m:
@@ -735,19 +850,27 @@ def processLine( line ):
 		
 		
 	logDebug( "Body '%s'" % body )
-	
-	# Split up sentences based on semicolons, assemble each sentance, and then concatenate all of
-	# the produced machine code bytes to represent the result of the line.
+		
 	startAddr = None
 	lineBytes = bytearray()
-	chunks = body.split( ";" )
-	for chunk in chunks:
-		chunk = chunk.strip()
-		logDebug( "Chunk: '%s'" % chunk )
-		addr, bytes = assembleChunk( chunk )
-		if startAddr == None:
-			startAddr = addr
+
+	m = re.match( r'^DC\s+(.*)', body )
+	if m:
+		# Line is a DC directive
+		body = m.group(1)
+		startAddr, bytes = assembleDC( body )
 		lineBytes.extend( bytes )
+	else:
+		# Split up sentences based on semicolons, assemble each sentence, and then concatenate all of
+		# the produced machine code bytes to represent the result of the line.
+		chunks = body.split( ";" )
+		for chunk in chunks:
+			chunk = chunk.strip()
+			logDebug( "Chunk: '%s'" % chunk )
+			addr, bytes = assembleChunk( chunk )
+			if startAddr == None:
+				startAddr = addr
+			lineBytes.extend( bytes )
 		
 	if passNumber == 2:
 		emitCode( line, startAddr, lineBytes )
