@@ -42,6 +42,8 @@ symbols = {}
 
 BYTES_PER_LINE = 6
 
+pgmImage = None
+
 
 
 #----------------------------------------------------------------
@@ -679,7 +681,7 @@ def assembleChunk( chunk ):
 # This will also deal with breaking the hex bytes flow to the next line if the width is too great.
 #
 def emitCode( line, startAddr, bytes ):
-	global lineNumber
+	global lineNumber, pgmImage
 	hexStr = ""
 	overflow = False
 	for byte in bytes:
@@ -703,8 +705,9 @@ def emitCode( line, startAddr, bytes ):
 		else:
 			emitListing( "%04X %s" % ( startAddr, hexStr ) )
 				
-	# TODO: Write a hex file. Both a complete padded file as well as S-Records etc.
-	# TODO: Check the generated code size against the size limiot option.
+	# Add bytes to the program image
+	end = startAddr + len(bytes)
+	pgmImage[startAddr:end] = bytes
 	
 
 
@@ -931,11 +934,26 @@ def secondPass( lines ):
 
 
 def assembleFile( src ):
+	global pgmImage
+	
 	lines = src.readlines()
+	
 	firstPass( lines )
+	print "Last address used: 0x%04X" % (address-1)
+	
+	if options.size:
+		if address >= options.size:
+			bailout( "Program too large by %d bytes" % ( (address - options.size) ) )
+		
+	# Set up a byte array to hold the assembled program image.
+	pgmImage = bytearray()
+	for i in range(address):
+		pgmImage.append( 0xFF )	# pad byte	
+	
 	resolveSymbols()
 	if options.verbose > 1:
 		dumpSymbols()
+	
 	secondPass( lines )
 
 
@@ -952,6 +970,8 @@ def process( filename ):
 	assembleFile( src )
 
 	src.close()
+
+	writeHexFile()
 		
 	
 	
@@ -961,6 +981,26 @@ def emitListing( text ):
 	if listingDest:
 		print>>listingDest, text
 
+
+def writeHexFile():
+	global hexDest, pgmImage
+	
+	text = dataToHexStrings( pgmImage )
+	hexDest.write(text)
+	
+	
+
+def dataToHexStrings( data ):
+	buf = ""
+	bytes = 0
+	for b in data:
+		buf = buf + "%02X" % b
+		bytes += 1
+		if bytes >= 16:
+			buf += "\n"
+			bytes = 0
+
+	return buf
 
 
 #----------------------------------------------------------------
