@@ -34,6 +34,16 @@ import serial.tools.list_ports
 
 import bincopy
 
+# If the assembler is available, set a flag true, otgherwise false.
+# This way we can use the assmebler if possible, but not cause an error if it's not present.
+try:
+	import cosmacasm
+	asmAvailable = True
+except ImportError, e:
+	if e.message != 'No module named cosmacasm':
+		raise
+	asmAvailable = False
+
 
 
 # After we connect to the Arduino serial port, the board resets. This is the delay to let that
@@ -489,6 +499,17 @@ def terminalAction():
 					
 				
 
+
+def assemble( filename ):
+	if asmAvailable == False:
+		print "Assembler not available. Is 'cosmacasm.py' in the same directory as mcard.py?"
+		sys.exit(1)
+	print "Assembling", filename
+	# Call the assembler module.
+	cosmacasm.process( filename )
+	
+
+
 #----------------------------------------------------------------
 #
 #----------------------------------------------------------------
@@ -612,7 +633,12 @@ def main( argv ):
 			print "No file name given."
 			print main.__doc__
 			sys.exit(1)
-		
+
+		rootname, ext = os.path.splitext( filename )
+		if ext == ".src":
+			assemble( filename )
+			filename = rootname + ".hex"
+			
 		# Perform the download
 		downloadAction( filename )
 	
