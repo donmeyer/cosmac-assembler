@@ -254,7 +254,6 @@ def dataToHexStrings( data ):
 		if bytes >= 16:
 			buf += "\n"
 			bytes = 0
-			buf = ""
 
 	return buf
 
