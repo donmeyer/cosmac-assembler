@@ -45,6 +45,13 @@ BYTES_PER_LINE = 6
 pgmImage = None
 
 
+#
+# Configuration variables
+#
+verbose = 1
+sizeLimit = None
+displayFlag = False
+
 
 #----------------------------------------------------------------
 # File read/write
@@ -155,9 +162,9 @@ def confirmSymbolAddress( name, value ):
 def resolveSymbols():
 	global symbols
 
-	if options.verbose > 1:
+	if verbose > 1:
 		print( "=========================== Resolve Symbols ==============================")
-	elif options.verbose > 0:
+	elif verbose > 0:
 		print "Resolve symbols..."
 		
 	lastFailCount = None
@@ -896,9 +903,9 @@ def processLine( line ):
 def firstPass( lines ):
 	global passNumber, lineNumber
 
-	if options.verbose > 1:
+	if verbose > 1:
 		print( "=========================== First Pass ==============================")
-	elif options.verbose > 0:
+	elif verbose > 0:
 		print "First Pass..."
 
 	passNumber = 1
@@ -918,9 +925,9 @@ def firstPass( lines ):
 def secondPass( lines ):
 	global passNumber, lineNumber, address
 	
-	if options.verbose > 1:
+	if verbose > 1:
 		print( "=========================== Second Pass ==============================")
-	elif options.verbose > 0:
+	elif verbose > 0:
 		print "Second Pass..."
 	
 	passNumber = 2
@@ -941,9 +948,9 @@ def assembleFile( src ):
 	firstPass( lines )
 	print "Last address used: 0x%04X" % (address-1)
 	
-	if options.size:
-		if address >= options.size:
-			bailout( "Program too large by %d bytes" % ( (address - options.size) ) )
+	if sizeLimit:
+		if address >= sizeLimit:
+			bailout( "Program too large by %d bytes" % ( (address - sizeLimit) ) )
 		
 	# Set up a byte array to hold the assembled program image.
 	pgmImage = bytearray()
@@ -951,7 +958,7 @@ def assembleFile( src ):
 		pgmImage.append( 0xFF )	# pad byte	
 	
 	resolveSymbols()
-	if options.verbose > 1:
+	if verbose > 1:
 		dumpSymbols()
 	
 	secondPass( lines )
@@ -963,8 +970,19 @@ def assembleFile( src ):
 #----------------------------------------------------------------
 
 def process( filename ):
-	global listDest, hexDest
+	global listingDest, hexDest
 	
+	rootname, ext = os.path.splitext( filename )
+	
+	if displayFlag == True:
+		listingDest = sys.stdout
+		hexDest = sys.stdout
+	else:
+		listingFilename = rootname + ".lst"
+		listingDest = open( listingFilename, 'w' )
+		hexFilename = rootname + ".hex"
+		hexDest = open( hexFilename, 'w' )
+
 	src = open( filename, 'r' )
 
 	assembleFile( src )
@@ -972,9 +990,17 @@ def process( filename ):
 	src.close()
 
 	writeHexFile()
+	
+	dumpSymbols()
+
+	if listingDest:
+		listingDest.close()
+	
+	if hexDest:
+		hexDest.close()
+	
 		
-	
-	
+		
 def emitListing( text ):
 	global listingDest
 	
@@ -1007,15 +1033,14 @@ def dataToHexStrings( data ):
 #
 #----------------------------------------------------------------
 
-
 def logVerbose( msg ):
-	if options.verbose > 0:
+	if verbose > 0:
 		print( msg )
 
 
 
 def logDebug( msg ):
-	if options.verbose > 1:
+	if verbose > 1:
 		print( msg )
 
 
@@ -1026,7 +1051,7 @@ def bailout( msg ):
 
 
 def main( argv ):
-	global options, listingDest, hexDest
+	global verbose, sizeLimit, displayFlag
 
 	usage = """"%prog [options] <file>
 	File is assembly source."""
@@ -1062,6 +1087,10 @@ def main( argv ):
 	logDebug( options )
 	logDebug( args )
 
+	verbose = options.verbose
+	sizeLimit = options.size
+	displayFlag = options.display
+
 	# Get the filename
 	if len(args) > 1:
 		filename = args[1]
@@ -1070,29 +1099,12 @@ def main( argv ):
 		print main.__doc__
 		sys.exit(1)
 
-	rootname, ext = os.path.splitext( filename )
-	
-	if options.display == True:
-		listingDest = sys.stdout
-		hexDest = sys.stdout
-	else:
-		listingFilename = rootname + ".lst"
-		listingDest = open( listingFilename, 'w' )
-		hexFilename = rootname + ".hex"
-		hexDest = open( hexFilename, 'w' )
-
 	process( filename )
 	
-	dumpSymbols()
-
-	if listingDest:
-		listingDest.close()
 	
-	if hexDest:
-		hexDest.close()
-
-
+	
 
 if __name__ == '__main__':
 	sys.exit( main(sys.argv) or 0 )
+	
 
