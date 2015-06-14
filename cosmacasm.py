@@ -219,6 +219,13 @@ def dumpSymbols():
 		print>>listingDest, "%16s : %s" % ( key, symbols[key] )
 	
 	
+	for key in keys:
+		sym = symbols[key]
+		if sym.isAddr():
+			v = "%04X" % sym.value
+			print>>listingDest, "%s : %s" % ( key, v )
+
+	
 
 #
 # Obtain the value for a single token.
