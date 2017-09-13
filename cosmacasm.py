@@ -841,6 +841,15 @@ def processLine( line ):
 		return
 		
 
+	# END?
+	m = re.match( r'^\s+END(.*)', line )
+	if m:
+		# Line is a END directive
+		logDebug( "End" )
+		# TODO: Should ignore everyting after this line?
+		return
+		
+
 	# Label?
 	m = re.match( r'^(\w+)\s*(.*)', line )
 	if m:
