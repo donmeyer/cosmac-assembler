@@ -344,7 +344,7 @@ def calcExpression( lineNumber, body ):
 
 			if what == None:
 				logDebug( "calc expression operand '%s' had no value" % s )
-				return ( None, None, False, None )		# Could not obtain a value
+				return ( None, False, False, None )		# Could not obtain a value
 			elif what == "sym":
 				litFlag = False
 				# 2nd member of tuple is the symbol object in this case
@@ -352,7 +352,7 @@ def calcExpression( lineNumber, body ):
 				if sym.value == None:
 					# Unresolved symbol
 					logDebug( "calc expression symbol '%s' had no value" % s )
-					return ( None, None, False, None )		# Could not obtain a value
+					return ( None, False, False, None )		# Could not obtain a value
 				else:
 					v = sym.value		# Use the value of the symbol
 					if sym.isAddr():
