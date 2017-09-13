@@ -152,6 +152,7 @@ def addSymbolAddress( name, value ):
 	sym.value = value
 	sym.is_addr = True
 	addSymbol( sym )
+	return sym
 	
 	
 	
@@ -164,6 +165,7 @@ def addSymbolEquate( name, body ):
 	sym = Symbol( name, "equ" )
 	sym.body = body
 	addSymbol( sym )
+	return sym
 
 
 
