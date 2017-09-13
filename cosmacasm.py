@@ -473,6 +473,8 @@ def assembleDC( body ):
 	
 def parseRegister( arg ):
 	m = re.match( r'^R([0-9A-F])', arg )
+	if m is None:
+		m = re.match( r'^([0-9A-F])', arg )
 	if m:
 		return int(m.group(1),16)
 	else:
