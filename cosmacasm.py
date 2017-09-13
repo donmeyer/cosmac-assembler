@@ -67,6 +67,7 @@ pgmImage = None
 verbose = 1
 sizeLimit = None
 displayFlag = False
+altSyntax = False
 
 
 #----------------------------------------------------------------
@@ -686,7 +687,7 @@ def assembleChunk( chunk ):
 	opcode = m.group(1)
 	mnemonic = m.group(1)
 	arg = m.group(2)
-	logDebug( "Chunk   opcode '%s'  arg '%s'" % ( opcode, arg ) )
+	logDebug( "Chunk '%s'  opcode '%s'  arg '%s'" % ( chunk, opcode, arg ) )
 
 	if opTable.has_key( mnemonic ):
 		opbase, func = opTable[mnemonic]
@@ -744,12 +745,7 @@ def emitCode( line, startAddr, bytes ):
 def processEquate( line, label, body ):
 	global address, lineNumber
 	
-	# Strip comments. Comments begin with two periods.
-	m = re.match( r'(.*?)\.\..*', body )
-	if m:
-		# print( "comment match" )
-		body = m.group(1)
-		body = body.rstrip()
+	body = stripComments(body)
 	
 	if passNumber == 1:
 		addSymbolEquate( label, body )
@@ -761,14 +757,8 @@ def processEquate( line, label, body ):
 def processOrigin( line, body ):
 	global address, lineNumber
 	
-	# Strip comments. Comments begin with two periods.
-	m = re.match( r'(.*?)\.\..*', body )
-	if m:
-		# print( "comment match" )
-		body = m.group(1)
-		body = body.rstrip()
-	
-	
+	body = stripComments(body)
+		
 	v, isAddr, litFlag, ebytes = calcExpression( lineNumber, body )
 	if v == None:
 		bailout( "Line: %d  Unable to resolve origin address for '%s'" % ( lineNumber, body ) )
@@ -865,12 +855,7 @@ def processLine( line ):
 	else:
 		body = line.lstrip()
 		
-	# Strip comments. Comments begin with two periods.
-	m = re.match( r'(.*?)\.\..*', body )
-	if m:
-		# print( "comment match" )
-		body = m.group(1)
-		body = body.rstrip()
+	body = stripComments(body)
 	
 	if body == "":
 		processNoCode( line, address )
@@ -882,7 +867,10 @@ def processLine( line ):
 	startAddr = None
 	lineBytes = bytearray()
 
-	m = re.match( r'^DC\s+(.*)', body )
+	if altSyntax == True:
+		m = re.match( r'^DB\s+(.*)', body )
+	else:
+		m = re.match( r'^DC\s+(.*)', body )
 	if m:
 		# Line is a DC directive
 		body = m.group(1)
@@ -915,6 +903,21 @@ def processLine( line ):
 	# 	b = string.atoi( num, 16 )
 
 
+
+# Strip comments. Comments begin with two periods, or a semicolon (if alt syntax mode).
+def stripComments( body ):
+	if altSyntax == True:
+		# Consider a semicolon a comment
+		m = re.match( r'(.*?);.*', body )
+	else:
+		m = re.match( r'(.*?)\.\..*', body )
+	if m:
+		# print( "comment match" )
+		body = m.group(1)
+		body = body.rstrip()
+	return body
+	
+	
 #----------------------------------------------------------------
 #
 #----------------------------------------------------------------
@@ -1074,12 +1077,16 @@ def bailout( msg ):
 
 
 def main( argv ):
-	global verbose, sizeLimit, displayFlag
+	global verbose, sizeLimit, displayFlag, altSyntax
 
 	usage = """"%prog [options] <file>
 	File is assembly source."""
 
 	parser = optparse.OptionParser(usage=usage)
+	
+	parser.add_option( "-a", "--altsyntax",
+						action="store_true", dest="altSyntax", default=False,
+						help="Alternate assembler syntax (; for comments)" )
 	
 	parser.add_option( "-s", "--size",
 						action="store", type="int", dest="size", default=None,
@@ -1113,6 +1120,7 @@ def main( argv ):
 	verbose = options.verbose
 	sizeLimit = options.size
 	displayFlag = options.display
+	altSyntax = options.altSyntax
 
 	# Get the filename
 	if len(args) > 1:
