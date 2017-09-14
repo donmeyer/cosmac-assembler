@@ -5,6 +5,8 @@
 import cosmacasm
 
 
+
+cosmacasm.verbose = 0
 failCount = 0
 
 
@@ -73,16 +75,22 @@ calcExpressionTests = [
 	( "E_CAT", 88, False, False ),
 	#
 	# Partial Address
-	# ( "A.0(A_BOOP)", 32, True, False ),
-	# ( "A.1(A_BOOP)", 0, True, False ),
-	# ( "A.0(A_MICE)", 0x34, True, False ),
-	# ( "A.1(A_MICE)", 0x12, True, False ),
+	( "A.0(A_BOOP)", 32, True, False ),
+	( "A.1(A_BOOP)", 0, True, False ),
+	( "A.0(A_MICE)", 0x34, True, False ),
+	( "A.1(A_MICE)", 0x12, True, False ),
 	#
 	# Address Calculations
 	( "A_BOOP+1", 33, True, False ),
 	( "A_BOOP + 1", 33, True, False ),
 	( "A_BOOP - 10H", 16, True, False ),
 	( "A_MICE + 10H", 0x1244, True, False ),
+	#
+	( "A.0(A_BOOP+1)", 33, True, False ),
+	( "A.1(A_BOOP+256)", 1, True, False ),
+	#
+	# Not yet supported
+	# ( "A.1(A_BOOP) + 3", 3, True, False )
 	
 	# Calculations with equates
 	( "E_CAT + 2", 90, False, False ),
@@ -94,8 +102,7 @@ calcExpressionTests = [
 	#
 	# Invalid formats
 	( "FFH", None, False, False ),
-	( "BEEP", None, False, False )
-	
+	( "BEEP", None, False, False )	
 ]
 
 #   BSCR-8
