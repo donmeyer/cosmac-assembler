@@ -320,6 +320,7 @@ def obtainTokenValue( lineNumber, token ):
 #   MICE
 #   BSCR-8
 #   ROMVAR + 1AH
+#	A.0(BEEP)
 #
 def calcExpression( lineNumber, body ):
 	value = None
@@ -329,16 +330,36 @@ def calcExpression( lineNumber, body ):
 	op = "new"
 	
 	logDebug( "Calc expression '%s'" % body )
-	
+
 	while True:
+		# Check for an enclosing "function"
+		ma = re.match( r'^A.([0-1])\((\S+)\)', body )
+		if ma:
+			# Low or high byte of address
+			v, addrFlag, litFlag, ebytes = calcExpression( lineNumber, ma.group(2) )
+			if v == None:
+				bailout( "Line: %d   Invalid argument" % lineNumber )
+			# elif addrFlag == False:
+			# 	bailout( "Line: %d   Argument must be an address" % lineNumber )
+			if ma.group(1) == '0':
+				v = v & 0xFF
+			else:
+				v = v>>8 & 0xFF
+			return ( v, addrFlag, litFlag, ebytes )
+		
+		
 		m = re.match( r'\s*([\w\$]+)', body )
 		if m:
 			s = m.group(1)
 			
 			logDebug( "Matched '%s'" % s )
+			# print( s )
 			
 			if op == "idle":
 				bailout( "Line: %d   illegal operator '%s'" % ( lineNumber, s ) )
+			
+			#match the A.0() and set a flag, use contents as expression, then before returning value do the A0/A1 math
+			# or, recurse with contents!
 			
 			what, v, ebytes = obtainTokenValue( lineNumber, s )
 
@@ -494,25 +515,12 @@ def assembleImmediate( opBase, arg, bytes ):
 		bytes.append( 0 )
 		bytes.append( 0 )
 		return
-
-	m = re.match( r'^A.([0-1])\((\S+)\)', arg )
-	if m:
-		# Low or high byte of address
-		v, addrFlag, litFlag, ebytes = calcExpression( lineNumber, m.group(2) )
-		if v == None:
-			bailout( "Line: %d   Invalid argument" % lineNumber )
-		# elif addrFlag == False:
-		# 	bailout( "Line: %d   Argument must be an address" % lineNumber )
-		if m.group(1) == '0':
-			v = v & 0xFF
-		else:
-			v = v>>8 & 0xFF
-	else:		
-		v, addrFlag, litFlag, ebytes = calcExpression( lineNumber, arg )
-		if v == None:
-			bailout( "Line: %d   Invalid argument" % lineNumber )
-		elif v > 0xFF:
-			bailout( "Line: %d   Argument out of range, must be 0-255" % lineNumber )
+	
+	v, addrFlag, litFlag, ebytes = calcExpression( lineNumber, arg )
+	if v == None:
+		bailout( "Line: %d   Invalid argument" % lineNumber )
+	elif v > 0xFF:
+		bailout( "Line: %d   Argument out of range, must be 0-255" % lineNumber )
 
 	bytes.append( opBase )
 	bytes.append( v )
