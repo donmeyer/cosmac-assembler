@@ -508,6 +508,13 @@ def assembleRegOp( opBase, arg, bytes ):
 	bytes.append( opBase + r )
 
 
+def assembleLoadN( opBase, arg, bytes ):
+	r = parseRegister( arg )
+	if r == 0:
+		bailout( "Line: %d   Register for Load N operation cannot be zero" % lineNumber )
+	bytes.append( opBase + r )
+
+
 
 # Parses a value or an address. Address must use the A.0() or A.1() formats
 def assembleImmediate( opBase, arg, bytes ):
@@ -582,7 +589,7 @@ def assembleInputOutput( opBase, arg, bytes ):
 #  mnemonic : [opcode], [func]
 #  opcode may be a base opcode used by the func (e.g. DEC)
 #  if no func, opcode used as-is
-opTable = {	"LDN" :   ( 0x00, assembleRegOp ),
+opTable = {	"LDN" :   ( 0x00, assembleLoadN ),
 			
 			"INC" :   ( 0x10, assembleRegOp ),
 			"DEC" :   ( 0x20, assembleRegOp ),
