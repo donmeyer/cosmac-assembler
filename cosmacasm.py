@@ -214,18 +214,18 @@ def resolveSymbols():
 
 def dumpSymbols():
 	global symbols, listingDest
-	listingDest.write( "\n\n------------------- Symbols by Name ----------------------" )
+	listingDest.write( "\n\n------------------- Symbols by Name ----------------------\n" )
 	keys = list(symbols.keys())
 	keys.sort()
 	for key in keys:
-		listingDest.write( "%16s : %s" % ( key, symbols[key] ) )
+		listingDest.write( "%16s : %s\n" % ( key, symbols[key] ) )
 	
-	
+	listingDest.write( "\n\n" )
 	for key in keys:
 		sym = symbols[key]
 		if sym.isAddr():
 			v = "%04X" % sym.value
-			listingDest.write( "%s : %s" % ( key, v ) )
+			listingDest.write( "%s : %s\n" % ( key, v ) )
 
 	
 
@@ -1063,7 +1063,7 @@ def emitListing( text ):
 	global listingDest
 	
 	if listingDest:
-		listingDest.write(text)
+		listingDest.write(text + "\n")
 
 
 def writeHexFile():
