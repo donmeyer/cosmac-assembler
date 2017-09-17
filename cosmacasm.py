@@ -588,7 +588,8 @@ def assembleInputOutput( opBase, arg, bytes ):
 #  mnemonic : [opcode], [func]
 #  opcode may be a base opcode used by the func (e.g. DEC)
 #  if no func, opcode used as-is
-opTable = {	"LDN" :   ( 0x00, assembleLoadN ),
+opTable = {	"IDLE" :   ( 0x00, None ),
+			"LDN" :   ( 0x00, assembleLoadN ),
 			
 			"INC" :   ( 0x10, assembleRegOp ),
 			"DEC" :   ( 0x20, assembleRegOp ),
@@ -712,8 +713,11 @@ def assembleChunk( chunk ):
 		if func:
 			logDebug( "Calling opcode func {0}".format(func) )
 			func( opbase, arg, bytes )
-		elif opbase:
-			bytes.append( opbase )	
+		elif opbase is not None:
+			logDebug( "Appending opbase {0}".format(opbase) )
+			bytes.append( opbase )
+		else:
+			bailout( "Internal error - invalid table for opcode '%s'" % mnemonic )
 	else:
 		bailout( "Line: %d  Invalid mnemonic '%s'" % ( lineNumber, chunk ) )
 			
