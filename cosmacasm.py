@@ -1098,9 +1098,24 @@ def logDebug( msg ):
 		print( msg )
 
 
+
+class Error(Exception):
+    """Exception raised for errors.
+
+    Attributes:
+        message -- explanation of the error
+    """
+
+    def __init__(self, message):
+        self.message = message
+
+
 def bailout( msg ):
-	print( "*** %s" % msg )
-	sys.exit( -1 )
+	if __name__ == '__main__':
+		print( "*** %s" % msg )
+		sys.exit( -1 )
+	else:
+		raise Error( msg )
 	
 
 
