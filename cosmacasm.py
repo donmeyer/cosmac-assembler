@@ -834,7 +834,7 @@ def processLine( line ):
 	logDebug( "------- Line '%s'" % line )
 	
 	# Equate?
-	m = re.match( r'^(\w+)\s+EQU\s+(.*)', line )
+	m = re.match( r'^(\w+)\s+EQU\s+(.*)', line, re.IGNORECASE )
 	if m:
 		# Line is an equate
 		label = m.group(1)
@@ -845,7 +845,7 @@ def processLine( line ):
 		
 
 	# Org?
-	m = re.match( r'^\s+ORG\s+(.*)', line )
+	m = re.match( r'^\s+ORG\s+(.*)', line, re.IGNORECASE )
 	if m:
 		# Line is an origin directive
 		body = m.group(1)
@@ -855,7 +855,7 @@ def processLine( line ):
 		
 
 	# PAGE?
-	m = re.match( r'^\s+PAGE(.*)', line )
+	m = re.match( r'^\s+PAGE(.*)', line, re.IGNORECASE )
 	if m:
 		# Line is a page directive
 		logDebug( "Page" )
@@ -864,7 +864,7 @@ def processLine( line ):
 		
 
 	# END?
-	m = re.match( r'^\s+END(.*)', line )
+	m = re.match( r'^\s+END(.*)', line, re.IGNORECASE )
 	if m:
 		# Line is a END directive
 		logDebug( "End" )
