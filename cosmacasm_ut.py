@@ -11,6 +11,7 @@ cosmacasm.verbose = 0	# 2 for noisy
 cosmacasm.passNumber = 2	# For pass 1, some opcodes are not assembled, so we force pass 2 to allow testing the
 							# assembleChunk() function.
 
+
 failCount = 0
 
 
@@ -109,29 +110,41 @@ calcExpressionTests = [
 	( "BEEP", None, False, False )	
 ]
 
+
+calcExpressionTestsAlt = [
+	( "LOW(A_MICE)", 0x34, True, False ),
+	( "HIGH(A_MICE)", 0x12, True, False )
+]
+
 #   BSCR-8
 #   ROMVAR + 1AH
 #	A.0(BEEP)
 
 
-for test in calcExpressionTests:
-	# Returns a tuple of ( value, addrFlag, litFlag, bytes ). Will return None if a value could not be obtained.
-	v, aflag, lflag, ebytes = cosmacasm.calcExpression( 0, test[0] )
-	# print( v, aflag, lflag, ebytes )
-	if aflag != test[2]:
-		failCount += 1
-		print( "Failed: Address Flag for '%s'. Expected %d but got %d" % ( test[0], test[2], aflag ) )
-	else:
-		if lflag != test[3]:
+def testCalcExpression( tests ):
+	global failCount
+	for test in tests:
+		# Returns a tuple of ( value, addrFlag, litFlag, bytes ). Will return None if a value could not be obtained.
+		v, aflag, lflag, ebytes = cosmacasm.calcExpression( 0, test[0] )
+		# print( v, aflag, lflag, ebytes )
+		if aflag != test[2]:
 			failCount += 1
-			print( "Failed: Literal Flag for '%s'. Expected %d but got %d" % ( test[0], test[3], lflag ) )
+			print( "Failed: Address Flag for '%s'. Expected %d but got %d" % ( test[0], test[2], aflag ) )
 		else:
-			if v != test[1]:
+			if lflag != test[3]:
 				failCount += 1
-				# print( "Failed: Type for '%s'. Expected %s but got %s" % ( test[0], test[1], what ) )
-				print( "Failed: Value for '%s'. Expected %d but got %d" % ( test[0], test[1], v ) )
+				print( "Failed: Literal Flag for '%s'. Expected %d but got %d" % ( test[0], test[3], lflag ) )
+			else:
+				if v != test[1]:
+					failCount += 1
+					# print( "Failed: Type for '%s'. Expected %s but got %s" % ( test[0], test[1], what ) )
+					print( "Failed: Value for '%s'. Expected %d but got %d" % ( test[0], test[1], v ) )
 
+testCalcExpression( calcExpressionTests )
 
+cosmacasm.altSyntax = True
+testCalcExpression( calcExpressionTestsAlt )
+cosmacasm.altSyntax = False
 
 
 print( "---- Opcode Tests (should succeed) ----")
