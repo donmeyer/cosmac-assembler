@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # 1802 Assembler
 #
@@ -40,7 +40,6 @@ import os, sys, csv, datetime, time
 import codecs
 import optparse
 import re
-import StringIO
 import string
 
 
@@ -135,7 +134,7 @@ class Symbol:
 #
 def addSymbol( sym ):
 	global symbols
-	if symbols.has_key( sym.name ):
+	if sym.name in symbols:
 		daddr = symbols[sym.name].lineNumber
 		bailout( "Line: %d   Duplicate symbol '%s'.  Original definition at line %d" % ( lineNumber, sym.name, daddr ) )
 	symbols[sym.name] = sym
@@ -184,7 +183,7 @@ def resolveSymbols():
 	if verbose > 1:
 		print( "=========================== Resolve Symbols ==============================")
 	elif verbose > 0:
-		print "Resolve symbols..."
+		print( "Resolve symbols..." )
 		
 	lastFailCount = None
 	while 1:
@@ -215,18 +214,18 @@ def resolveSymbols():
 
 def dumpSymbols():
 	global symbols, listingDest
-	print>>listingDest, "\n\n------------------- Symbols by Name ----------------------"
-	keys = symbols.keys()
+	listingDest.write( "\n\n------------------- Symbols by Name ----------------------" )
+	keys = list(symbols.keys())
 	keys.sort()
 	for key in keys:
-		print>>listingDest, "%16s : %s" % ( key, symbols[key] )
+		listingDest.write( "%16s : %s" % ( key, symbols[key] ) )
 	
 	
 	for key in keys:
 		sym = symbols[key]
 		if sym.isAddr():
 			v = "%04X" % sym.value
-			print>>listingDest, "%s : %s" % ( key, v )
+			listingDest.write( "%s : %s" % ( key, v ) )
 
 	
 
@@ -294,7 +293,7 @@ def obtainTokenValue( lineNumber, token ):
 		return ( "dec", int(s,10), None )
 	
 	# Symbol?
-	if symbols.has_key( token ):
+	if token in symbols:
 		logDebug( "Obtained symbol value for token '%s'" % token )
 		sym = symbols[token]		
 		return ( "sym", sym, None )
@@ -454,7 +453,7 @@ def assembleDC( body ):
 			s = m.group(1)
 			chars = list(s)
 			for c in chars:
-				bytes.append( c )
+				bytes.append( ord(c) )
 		else:
 			v, isAddr, litFlag, ebytes = calcExpression( lineNumber, chunk )
 			if v == None:
@@ -708,9 +707,10 @@ def assembleChunk( chunk ):
 	arg = m.group(2)
 	logDebug( "Chunk '%s'  opcode '%s'  arg '%s'" % ( chunk, opcode, arg ) )
 
-	if opTable.has_key( mnemonic ):
+	if mnemonic in opTable:
 		opbase, func = opTable[mnemonic]
 		if func:
+			logDebug( "Calling opcode func {0}".format(func) )
 			func( opbase, arg, bytes )
 		elif opbase:
 			bytes.append( opbase )	
@@ -960,7 +960,7 @@ def firstPass( lines ):
 	if verbose > 1:
 		print( "=========================== First Pass ==============================")
 	elif verbose > 0:
-		print "First Pass..."
+		print( "First Pass..." )
 
 	passNumber = 1
 	lineNumber = 0
@@ -982,7 +982,7 @@ def secondPass( lines ):
 	if verbose > 1:
 		print( "=========================== Second Pass ==============================")
 	elif verbose > 0:
-		print "Second Pass..."
+		print( "Second Pass..." )
 	
 	passNumber = 2
 	lineNumber = 0
@@ -1000,7 +1000,7 @@ def assembleFile( src ):
 	lines = src.readlines()
 	
 	firstPass( lines )
-	print "Last address used: 0x%04X" % (address-1)
+	print( "Last address used: 0x%04X" % (address-1) )
 	
 	if sizeLimit:
 		if address >= sizeLimit:
@@ -1059,7 +1059,7 @@ def emitListing( text ):
 	global listingDest
 	
 	if listingDest:
-		print>>listingDest, text
+		listingDest.write(text)
 
 
 def writeHexFile():
@@ -1154,8 +1154,8 @@ def main( argv ):
 	if len(args) > 1:
 		filename = args[1]
 	else:
-		print "No file name given."
-		print main.__doc__
+		print( "No file name given." )
+		print( main.__doc__ )
 		sys.exit(1)
 
 	process( filename )
