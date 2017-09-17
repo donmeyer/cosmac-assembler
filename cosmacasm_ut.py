@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 
 
@@ -6,7 +6,11 @@ import cosmacasm
 
 
 
-cosmacasm.verbose = 0
+cosmacasm.verbose = 0	# 2 for noisy
+
+cosmacasm.passNumber = 2	# For pass 1, some opcodes are not assembled, so we force pass 2 to allow testing the
+							# assembleChunk() function.
+
 failCount = 0
 
 
@@ -126,6 +130,50 @@ for test in calcExpressionTests:
 				failCount += 1
 				# print( "Failed: Type for '%s'. Expected %s but got %s" % ( test[0], test[1], what ) )
 				print( "Failed: Value for '%s'. Expected %d but got %d" % ( test[0], test[1], v ) )
+
+
+
+
+print( "---- Opcode Tests (should succeed) ----")
+
+opcodeTests = [
+	( "IDLE", b"\x00" ),
+	( "IRX", b"\x60" ),
+	( "LDI 74H", b"\xF8\x74" ),
+	( "LDN R2", b"\x02" )
+]
+
+
+for test in opcodeTests:
+	tbytes = bytearray( test[1] )
+	try:
+		addr, abytes = cosmacasm.assembleChunk( test[0] )
+	except cosmacasm.Error as err:
+		print( "*** caught an exception", err.message )
+		failCount += 1
+	else:
+		if abytes != tbytes:
+			print( "Failed: opcode '%s'." % test[0] )
+			print( "Expected", tbytes )
+			print(  "But got", abytes ) 
+			print(  "with len", len(abytes) ) 
+			failCount += 1
+
+
+
+
+
+print( "---- Opcode Tests (should fail) ----")
+
+
+try:
+	addr, abytes = cosmacasm.assembleChunk( "LDN R0" )
+except cosmacasm.Error as err:
+	# This should thrown an exception since R0 cxannot be used for LDN
+	pass
+else:
+	print( "Failed: 'LDN R0' should have throen an exception" )
+	failCount += 1
 
 
 
