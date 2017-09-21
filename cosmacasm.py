@@ -501,12 +501,21 @@ def assembleDC( body ):
 	
 def parseRegister( arg ):
 	m = re.match( r'^R([0-9A-F])', arg )
-	if m is None:
-		m = re.match( r'^([0-9A-F])', arg )
-	if m:
+	if m is not None:
 		return int(m.group(1),16)
 	else:
-		bailout( "Line: %d  Invalid register '%s'" % (lineNumber, arg) )		
+		if passNumber == 1:
+			# symbols not resolved yet
+			return 0
+		v, aflag, lflag, ebytes = calcExpression( lineNumber, arg )
+		# print( v, aflag, lflag, ebytes )
+		if v is not None:
+			if v < 0 or v > 15:
+				bailout( "Line: %d  Invalid register value %d for '%s'" % (lineNumber, v, arg) )		
+			else:
+				return v
+		else:
+			bailout( "Line: %d  Invalid register '%s'" % (lineNumber, arg) )		
 	
 
 	
