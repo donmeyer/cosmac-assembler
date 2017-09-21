@@ -189,6 +189,16 @@ else:
 	failCount += 1
 
 
+try:
+	addr, abytes = cosmacasm.assembleChunk( "SEX PC+8" )
+except cosmacasm.Error as err:
+	# This should thrown an exception since R0 cxannot be used for LDN
+	pass
+else:
+	print( "Failed: 'SEX PC+8' should have throen an exception" )
+	failCount += 1
+
+
 
 
 
