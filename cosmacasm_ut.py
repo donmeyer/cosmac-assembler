@@ -21,6 +21,8 @@ cosmacasm.addSymbolAddress( "A_MICE", 0x1234 )
 
 sym = cosmacasm.addSymbolEquate( "E_CAT", "88" )
 sym.resolve()
+sym = cosmacasm.addSymbolEquate( "PC", "8" )
+sym.resolve()
 
 
 
@@ -152,6 +154,10 @@ print( "---- Opcode Tests (should succeed) ----")
 opcodeTests = [
 	( "IDLE", b"\x00" ),
 	( "IRX", b"\x60" ),
+	( "SEX R1", b"\xE1" ),
+	( "SEX 3", b"\xE3" ),
+	( "SEX PC", b"\xE8" ),
+	( "SEX PC+2", b"\xEA" ),
 	( "LDI 74H", b"\xF8\x74" ),
 	( "LDN R2", b"\x02" )
 ]
