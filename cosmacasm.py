@@ -876,12 +876,12 @@ def processLine( line ):
 	if m:
 		# Line is a END directive
 		logDebug( "End" )
-		# TODO: Should ignore everyting after this line?
+		# TODO: Should ignore everything after this line?
 		return
 		
 
 	# Label?
-	m = re.match( r'^(\w+)\s*(.*)', line )
+	m = re.match( r'^(\w+):?\s*(.*)', line )
 	if m:
 		# Line has a label
 		label = m.group(1)
