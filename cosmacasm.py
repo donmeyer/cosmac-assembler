@@ -935,6 +935,8 @@ def processLine( line ):
 	
 	line = stripComments(line)
 
+	line = line.rstrip()	# remove trailing whitespace yet again
+
 	
 	# IF?
 	m = re.match( r'^\s*IF\s+(.+)', line, re.IGNORECASE )
@@ -1078,18 +1080,40 @@ def processLine( line ):
 
 # Strip comments. Comments begin with two periods, or a semicolon (if alt syntax mode).
 def stripComments( body ):
-	if altSyntax == True:
-		# Consider a semicolon a comment
-		m = re.match( r'(.*?);.*', body )
-	else:
-		m = re.match( r'(.*?)\.\..*', body )
-	if m:
-		# print( "comment match" )
-		body = m.group(1)
-		body = body.rstrip()
-	return body
-	
-	
+	line = ""
+	inQuote = False
+	while len(body) > 0:
+		c = body[0]
+		body = body[1:]
+		
+		if inQuote:
+			# Looking only for closing quote
+			if c == "'":
+				inQuote = False
+				line += c
+				continue
+		else:
+			if c == "'":
+				inQuote = True
+			else:
+				if altSyntax == True:
+					# Consider a semicolon a comment
+					if c == ';':
+						break
+				else:
+					if c == '.':
+						if body[0] == '.':
+							# Two dots means comment
+							break
+				
+		line += c
+		
+	if inQuote:
+		bailout( "Line: %d  Missing a closing quote delimiter" % lineNumber )
+
+	return line
+
+
 #----------------------------------------------------------------
 #
 #----------------------------------------------------------------
