@@ -51,7 +51,8 @@ hexDest = None
 address = 0
 
 passNumber = 1
-lineNumber = 0
+lineNumber = 0		# The line number being processed
+curLine = None		# Set to the full current line being processed
 
 symbols = {}
 
@@ -285,8 +286,6 @@ def dumpSymbols():
 #   0AA12AA55FFH
 #
 def obtainTokenValue( lineNumber, token ):
-	global symbols, address
-
 	if token == "$":
 		# return a pseudo-sym
 		sym = Symbol( "$", "addr" )
@@ -482,7 +481,7 @@ def calcExpression( lineNumber, body ):
 #   DC 8
 #
 def assembleDC( body ):
-	global address, lineNumber
+	global address
 
 	logDebug( "Assemble DC '%s'" % body )
 
@@ -790,8 +789,8 @@ def assembleChunk( chunk ):
 #
 # This will also deal with breaking the hex bytes flow to the next line if the width is too great.
 #
-def emitCode( line, startAddr, bytes ):
-	global lineNumber, pgmImage
+def emitCode( startAddr, bytes ):
+	global pgmImage
 	hexStr = ""
 	overflow = False
 	for byte in bytes:
@@ -800,7 +799,7 @@ def emitCode( line, startAddr, bytes ):
 		if len(hexStr) >= (BYTES_PER_LINE * 2):
 			hexStr += ';'
 			if overflow == False:
-				emitListing( "%04X %-14s %04d  %s" % ( startAddr, hexStr, lineNumber, line ) )
+				emitListing( "%04X %-14s %04d  %s" % ( startAddr, hexStr, lineNumber, curLine ) )
 				hexStr = ""
 				overflow = True
 			else:
@@ -811,7 +810,7 @@ def emitCode( line, startAddr, bytes ):
 	if hexStr != "":
 		hexStr += ';'
 		if overflow == False:
-			emitListing( "%04X %-14s %04d  %s" % ( startAddr, hexStr, lineNumber, line ) )
+			emitListing( "%04X %-14s %04d  %s" % ( startAddr, hexStr, lineNumber, curLine ) )
 		else:
 			emitListing( "%04X %s" % ( startAddr, hexStr ) )
 				
@@ -821,20 +820,18 @@ def emitCode( line, startAddr, bytes ):
 	
 
 
-def processEquate( line, label, body ):
-	global address, lineNumber
-	
+def processEquate( label, body ):
 	body = stripComments(body)
 	
 	if passNumber == 1:
 		addSymbolEquate( label, body )
 	elif passNumber == 2:
-		emitListing( "%04X ;              %04d  %s" % (address, lineNumber, line) )
+		emitListing( "%04X ;              %04d  %s" % (address, lineNumber, curLine) )
 
 
 
-def processOrigin( line, body ):
-	global address, lineNumber
+def processOrigin( body ):
+	global address
 	
 	body = stripComments(body)
 		
@@ -843,16 +840,16 @@ def processOrigin( line, body ):
 		bailout( "Line: %d  Unable to resolve origin address for '%s'" % ( lineNumber, body ) )
 	
 	if passNumber == 2:
-		emitListing( "%04X ;              %04d   %s" % (address, lineNumber, line) )
+		emitListing( "%04X ;              %04d   %s" % (address, lineNumber, curLine) )
 	address = v
 	
 	
 
-def processPage( line ):
-	global address, lineNumber
+def processPage():
+	global address
 
 	if passNumber == 2:
-		emitListing( "%04X ;              %04d  %s" % (address, lineNumber, line) )
+		emitListing( "%04X ;              %04d  %s" % (address, lineNumber, curLine) )
 	
 	if address & 0xFF != 0:
 		# Adjust the address to the next 256-byte page start
@@ -863,9 +860,11 @@ def processPage( line ):
 
 	
 
-def processIf( line, body ):
-	global address, lineNumber, okToEmitCode
-	processNoCode( line, address )
+def processIf( body ):
+	global okToEmitCode
+	
+	processNoCode()
+	
 	v, isAddr, litFlag, ebytes = calcExpression( lineNumber, body )
 	if v == None:
 		bailout( "Line: %d  Unable to resolve conditional expression for '%s'" % ( lineNumber, body ) )
@@ -877,9 +876,9 @@ def processIf( line, body ):
 	
 
 
-def processElse( line ):
-	global address, lineNumber, okToEmitCode
-	processNoCode( line, address )
+def processElse():
+	global okToEmitCode
+	processNoCode()
 	if len(conditionalStack) < 1:
 		bailout( "Line: %d: Found a conditional block 'else' while not in a conditional block" % lineNumber )
 	f = conditionalStack[-1].blockToElse()
@@ -892,9 +891,9 @@ def processElse( line ):
 
 
 	
-def processEndif( line ):
-	global address, lineNumber, okToEmitCode
-	processNoCode( line, address )
+def processEndif():
+	global okToEmitCode
+	processNoCode()
 	if len(conditionalStack) < 1:
 		bailout( "Line: %d: Found a conditional block 'end' while not in a conditional block" % lineNumber )
 		
@@ -908,61 +907,65 @@ def processEndif( line ):
 
 
 	
-def processNoCode( line, addr ):
-	global lineNumber
+def processNoCode():
 	if passNumber == 2:
-		if line == "":
-			emitListing( "%04X ;              %04d" % (addr, lineNumber) )
+		if curLine == "":
+			emitListing( "%04X ;              %04d" % (address, lineNumber) )
 		else:
-			emitListing( "%04X ;              %04d  %s" % (addr, lineNumber, line) )
+			emitListing( "%04X ;              %04d  %s" % (address, lineNumber, curLine) )
 	
 	
 	
 #----------------------------------------------------------------
 #
 #----------------------------------------------------------------
-
 
 #
 # Process a line of source
 #
 #
 def processLine( line ):
+	global curLine
+	
 	line = line.rstrip()	# remove trailing whitespace
 
 	logDebug( "------- Line '%s'" % line )
 	
+	curLine = line
+	
+	line = stripComments(line)
+
 	
 	# IF?
-	m = re.match( r'^\s*IF\s+(.*)', line, re.IGNORECASE )
+	m = re.match( r'^\s*IF\s+(.+)', line, re.IGNORECASE )
 	if m:
 		# Line is an IF directive
 		body = m.group(1)
 		logDebug( "If: '%s'" % ( body ) )
-		processIf( line, body )
+		processIf( body )
 		return
 
 
 	# ELSE?
-	m = re.match( r'^\s*ELSE\s*.*', line, re.IGNORECASE )
+	m = re.match( r'^\s*ELSE$', line, re.IGNORECASE )
 	if m:
 		# Line is an else directive
 		logDebug( "Else" )
-		processElse( line )
+		processElse()
 		return
 
 
 	# ENDI?
-	m = re.match( r'^\s*ENDI\s*.*', line, re.IGNORECASE )
+	m = re.match( r'^\s*ENDI$', line, re.IGNORECASE )
 	if m:
 		# Line is an end if directive
 		logDebug( "End If" )
-		processEndif( line )
+		processEndif()
 		return
 
 	
 	if not okToEmitCode:
-		processNoCode( line, address )
+		processNoCode()
 		return
 	
 	
@@ -976,7 +979,7 @@ def processLine( line ):
 		label = m.group(1)
 		body = m.group(2)
 		logDebug( "Equate: '%s'   value chunk '%s'" % ( label, body ) )
-		processEquate( line, label, body )
+		processEquate( label, body )
 		return
 		
 
@@ -986,7 +989,7 @@ def processLine( line ):
 		# Line is an origin directive
 		body = m.group(1)
 		logDebug( "Origin: '%s'" % ( body ) )
-		processOrigin( line, body )
+		processOrigin( body )
 		return
 		
 
@@ -995,7 +998,7 @@ def processLine( line ):
 	if m:
 		# Line is a page directive
 		logDebug( "Page" )
-		processPage( line )
+		processPage()
 		return
 		
 
@@ -1024,10 +1027,10 @@ def processLine( line ):
 	else:
 		body = line.lstrip()
 		
-	body = stripComments(body)
+	# body = stripComments(body)
 	
 	if body == "":
-		processNoCode( line, address )
+		processNoCode()
 		return
 		
 		
@@ -1058,7 +1061,7 @@ def processLine( line ):
 			lineBytes.extend( bytes )
 		
 	if passNumber == 2:
-		emitCode( line, startAddr, lineBytes )
+		emitCode( startAddr, lineBytes )
 		
 		# print( "Addr: 0x%04X" % addr )
 		# print( "Bytes", bytes[0], bytes[1] )
