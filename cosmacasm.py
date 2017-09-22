@@ -59,6 +59,10 @@ BYTES_PER_LINE = 6
 
 pgmImage = None
 
+conditionalStack = []	# stack of ConditionalBlock objects
+
+okToEmitCode = True		# This is set by the if/else/endi statements as needed.
+
 
 #
 # Configuration variables
@@ -126,7 +130,39 @@ class Symbol:
 			if isAddr:
 				self.is_addr = True
 		return True
-		
+
+
+
+class ConditionalBlock:
+	"""
+	parentState - The state of the enclosing block. If false, this objects state is never set to true.
+	state - boolean indicating whether the IF condition was true or not.
+	"""
+	def __init__( self, parentState, state ):
+		self.parentState = parentState
+		if parentState is True:
+			self.state = state
+		else:
+			self.state = False
+		self.condState = state
+		self.block = "if"		# This can be "if" or "else" to indicate which portion of the conditional is currently being parsed.
+
+	def __repr__(self):
+		return "parent state=%d  original state=%d  state=%d  block=%s" % ( self.parentState, self.condState, self.state, self.block )
+
+	# Returns True if the state change was valid, False if not.
+	def blockToElse(self):
+		if self.block == "if":
+			self.block == "else"
+			if self.parentState is True:
+				self.state = not self.state
+			return True
+		else:
+			return False
+			
+			
+
+
 
 #
 # Value can be a number, or a string. If a string, it represents a symbol or equation that
@@ -138,6 +174,8 @@ def addSymbol( sym ):
 		daddr = symbols[sym.name].lineNumber
 		bailout( "Line: %d   Duplicate symbol '%s'.  Original definition at line %d" % ( lineNumber, sym.name, daddr ) )
 	symbols[sym.name] = sym
+	sym.resolve()	# We try here because some can be resolved, but this may fail, which is fine.
+					# We do another resolve step after the first pass completes.
 
 
 #
@@ -825,6 +863,50 @@ def processPage( line ):
 
 	
 
+def processIf( line, body ):
+	global address, lineNumber, okToEmitCode
+	processNoCode( line, address )
+	v, isAddr, litFlag, ebytes = calcExpression( lineNumber, body )
+	if v == None:
+		bailout( "Line: %d  Unable to resolve conditional expression for '%s'" % ( lineNumber, body ) )
+	c = ConditionalBlock( okToEmitCode, v != 0 )
+	conditionalStack.append(c)
+	okToEmitCode = c.state
+	logDebug( "cblock %s" % c )
+	logDebug( "Ok to emit code = %d" % okToEmitCode )
+	
+
+
+def processElse( line ):
+	global address, lineNumber, okToEmitCode
+	processNoCode( line, address )
+	if len(conditionalStack) < 1:
+		bailout( "Line: %d: Found a conditional block 'else' while not in a conditional block" % lineNumber )
+	f = conditionalStack[-1].blockToElse()
+	if f == False:
+		bailout( "Line: %d: Found a second conditional block 'else' while already in an else block" % lineNumber )		
+	okToEmitCode = conditionalStack[-1].state
+	logDebug( "cblock %s" % conditionalStack[0] )
+	logDebug( "Ok to emit code = %d" % okToEmitCode )
+
+
+
+	
+def processEndif( line ):
+	global address, lineNumber, okToEmitCode
+	processNoCode( line, address )
+	if len(conditionalStack) < 1:
+		bailout( "Line: %d: Found a conditional block 'end' while not in a conditional block" % lineNumber )
+		
+	conditionalStack.pop()
+	if len(conditionalStack) > 0:
+		okToEmitCode = conditionalStack[-1].state
+		logDebug( "cblock %s" % conditionalStack[0] )
+	else:
+		okToEmitCode = True
+	logDebug( "Ok to emit code = %d" % okToEmitCode )
+
+
 	
 def processNoCode( line, addr ):
 	global lineNumber
@@ -849,6 +931,43 @@ def processLine( line ):
 	line = line.rstrip()	# remove trailing whitespace
 
 	logDebug( "------- Line '%s'" % line )
+	
+	
+	# IF?
+	m = re.match( r'^\s*IF\s+(.*)', line, re.IGNORECASE )
+	if m:
+		# Line is an IF directive
+		body = m.group(1)
+		logDebug( "If: '%s'" % ( body ) )
+		processIf( line, body )
+		return
+
+
+	# ELSE?
+	m = re.match( r'^\s*ELSE\s*.*', line, re.IGNORECASE )
+	if m:
+		# Line is an else directive
+		logDebug( "Else" )
+		processElse( line )
+		return
+
+
+	# ENDI?
+	m = re.match( r'^\s*ENDI\s*.*', line, re.IGNORECASE )
+	if m:
+		# Line is an end if directive
+		logDebug( "End If" )
+		processEndif( line )
+		return
+
+	
+	if not okToEmitCode:
+		processNoCode( line, address )
+		return
+	
+	
+	# - - - - - - - - - - - - - - - - -
+	
 	
 	# Equate?
 	m = re.match( r'^(\w+)\s+EQU\s+(.*)', line, re.IGNORECASE )

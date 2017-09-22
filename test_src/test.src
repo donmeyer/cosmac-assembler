@@ -2,6 +2,8 @@
 	..
 	........ 1802 FIG-FORTH ................
 
+BEEP	equ 0
+
 CSTACK	EQU 9		.. forth stack pointer
 
 USIZE	EQU 80H 	.. Number of bytes to copy
@@ -114,6 +116,50 @@ HEXLITERALS
 	DC 123H
 	DC 0123H
 	DC 1234H
+
+
+IF CSTACK	.. True
+	DC 12
+	LDI 033H
+IF 0		.. False, nest 1
+	DC 55	.. no code
+ELSE
+	DC 80
+ENDI
+	DC 62
+ELSE
+IF 1		.. True, nest 1
+	DC 56	.. no code
+ELSE
+	DC 40	.. no code
+ENDI
+	DC 13	.. no code
+ENDI
+
+EARLY
+	DC $ + 2
+	BR EARLY
+
+IF BEEP		.. False
+IF 1		.. True, nest 1
+	DC 56	.. no code
+ELSE
+	DC 58	.. no code
+ENDI
+	DC 24	.. no code
+	LDI 099H	.. no code
+	BR COLD	.. no code
+ELSE
+	DC 99
+	BR LATER
+ENDI
+
+LATER
+	DC $ + 2
+	BR FIND
+	
+	END
+	
 
 
 
