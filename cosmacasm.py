@@ -161,7 +161,22 @@ class ConditionalBlock:
 		else:
 			return False
 			
-			
+
+		
+class Error(Exception):
+    """Exception raised for errors.
+
+    Attributes:
+        message -- explanation of the error
+    """
+
+    def __init__(self, message):
+        self.message = message
+
+
+class TokenError(Error): pass
+
+
 
 
 
@@ -1265,17 +1280,6 @@ def logDebug( msg ):
 	if verbose > 1:
 		print( msg )
 
-
-
-class Error(Exception):
-    """Exception raised for errors.
-
-    Attributes:
-        message -- explanation of the error
-    """
-
-    def __init__(self, message):
-        self.message = message
 
 
 def bailout( msg ):
