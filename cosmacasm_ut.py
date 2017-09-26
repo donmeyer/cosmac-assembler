@@ -19,11 +19,41 @@ failCount = 0
 cosmacasm.addSymbolAddress( "A_BOOP", 32 )
 cosmacasm.addSymbolAddress( "A_MICE", 0x1234 )
 
-sym = cosmacasm.addSymbolEquate( "E_CAT", "88" )
-sym.resolve()
-sym = cosmacasm.addSymbolEquate( "PC", "8" )
-sym.resolve()
+symECat = cosmacasm.addSymbolEquate( "E_CAT", "88" )
+symPC = cosmacasm.addSymbolEquate( "PC", "8" )
 
+
+
+
+print( "---- obtainTokenValue() ----")
+
+def testObtainTokenValue(tests):
+	global failCount
+	for test in tests:
+		what, v, ebytes = cosmacasm.obtainTokenValue( 0, test[0] )
+		# print( test[0], ":", what, v, ebytes )
+		if what != test[1]:
+			failCount += 1
+			print( "Failed: Type for '%s'. Expected %s but got %s" % ( test[0], test[1], what ) )
+		else:
+			if what == "sym":
+				if v.value != test[2]:
+					failCount += 1
+					print( "Failed: Address for '%s'. Expected %d but got" % ( test[0], test[2] ), v )
+			else:
+				if v != test[2]:
+					failCount += 1
+					print( "Failed: Value for '%s'. Expected %d but got %d" % ( test[0], test[2], v ) )
+
+
+
+# negativeTokenValueTests = [
+# 	( "GG", "dec", 55 ),
+# 	( "PC", "sym", 8 ),
+# 	( "E_CAT", "sym", 88 )
+# ]
+#
+# testObtainTokenValue( negativeTokenValueTests )
 
 
 tokenValueTests = [
@@ -38,33 +68,13 @@ tokenValueTests = [
 
 	# Invalid formats
 	( "FFH", None, None ),
-	( "BEEP", None, None )
-	
+	( "BEEP", None, None )	
 ]
-
-
-
-print( "---- obtainTokenValue() ----")
-
-for test in tokenValueTests:
-	what, v, ebytes = cosmacasm.obtainTokenValue( 0, test[0] )
-	# print( what, v, ebytes )
-	if what != test[1]:
-		failCount += 1
-		print( "Failed: Type for '%s'. Expected %s but got %s" % ( test[0], test[1], what ) )
-	else:
-		if what == "sym":
-			if v.value != test[2]:
-				failCount += 1
-				print( "Failed: Address for '%s'. Expected %d but got %d" % ( test[0], test[2], v ) )
-		else:
-			if v != test[2]:
-				failCount += 1
-				print( "Failed: Value for '%s'. Expected %d but got %d" % ( test[0], test[2], v ) )
-
 	
-	
-	
+testObtainTokenValue( tokenValueTests )
+
+
+
 
 print( "---- calcExpression() ----")
 
