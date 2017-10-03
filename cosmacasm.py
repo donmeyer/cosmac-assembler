@@ -42,6 +42,8 @@ import optparse
 import re
 import string
 
+import Chunker
+
 
 
 listingDest = None
@@ -172,11 +174,6 @@ class Error(Exception):
 
     def __init__(self, message):
         self.message = message
-
-
-class TokenError(Error): pass
-
-
 
 
 
@@ -392,7 +389,7 @@ def calcExpression( lineNumber, body ):
 			# Low or high byte of address
 			v, addrFlag, litFlag, ebytes = calcExpression( lineNumber, ma.group(2) )
 			if v == None:
-				bailout( "Line: %d   Invalid argument" % lineNumber )
+				bailout( "Line: %d   Invalid argument (calc experssion)" % lineNumber )
 			# elif addrFlag == False:
 			# 	bailout( "Line: %d   Argument must be an address" % lineNumber )
 			if altSyntax is True:
@@ -593,7 +590,7 @@ def assembleImmediate( opBase, arg, bytes ):
 	
 	v, addrFlag, litFlag, ebytes = calcExpression( lineNumber, arg )
 	if v == None:
-		bailout( "Line: %d   Invalid argument" % lineNumber )
+		bailout( "Line: %d   Invalid argument (immediate) '%s'" % (lineNumber, arg) )
 	elif v > 0xFF:
 		bailout( "Line: %d   Argument out of range, must be 0-255" % lineNumber )
 
@@ -612,7 +609,7 @@ def assembleShortBranch( opBase, arg, bytes ):
 
 	v, addrFlag, litFlag, ebytes = calcExpression( lineNumber, arg )
 	if v == None:
-		bailout( "Line: %d   Invalid argument" % lineNumber )
+		bailout( "Line: %d   Invalid argument (short branch)" % lineNumber )
 	elif addrFlag == False:
 		bailout( "Line: %d   Invalid argument, must be an address" % lineNumber )
 	logDebug( "SB arg addr is 0x%04X" % ( address+1 ) )
@@ -635,7 +632,7 @@ def assembleLongBranch( opBase, arg, bytes ):
 
 	v, addrFlag, litFlag, ebytes = calcExpression( lineNumber, arg )
 	if v == None:
-		bailout( "Line: %d   Invalid argument" % lineNumber )
+		bailout( "Line: %d   Invalid argument (long branch)" % lineNumber )
 	elif addrFlag == False:
 		bailout( "Line: %d   Invalid argument, must be an address" % lineNumber )
 	bytes.append( opBase )
@@ -800,7 +797,7 @@ def assembleChunk( chunk ):
 #
 #----------------------------------------------------------------
 
-#
+# Emit the results of a line of code.
 #
 # This will also deal with breaking the hex bytes flow to the next line if the width is too great.
 #
@@ -836,26 +833,22 @@ def emitCode( startAddr, bytes ):
 
 
 def processEquate( label, body ):
-	body = stripComments(body)
+	body = body.strip()
 	
 	if passNumber == 1:
 		addSymbolEquate( label, body )
-	elif passNumber == 2:
-		emitListing( "%04X ;              %04d  %s" % (address, lineNumber, curLine) )
+	emitNoCode()
 
 
 
 def processOrigin( body ):
 	global address
 	
-	body = stripComments(body)
-		
 	v, isAddr, litFlag, ebytes = calcExpression( lineNumber, body )
 	if v == None:
 		bailout( "Line: %d  Unable to resolve origin address for '%s'" % ( lineNumber, body ) )
 	
-	if passNumber == 2:
-		emitListing( "%04X ;              %04d   %s" % (address, lineNumber, curLine) )
+	emitNoCode()
 	address = v
 	
 	
@@ -863,8 +856,7 @@ def processOrigin( body ):
 def processPage():
 	global address
 
-	if passNumber == 2:
-		emitListing( "%04X ;              %04d  %s" % (address, lineNumber, curLine) )
+	emitNoCode()
 	
 	if address & 0xFF != 0:
 		# Adjust the address to the next 256-byte page start
@@ -878,7 +870,7 @@ def processPage():
 def processIf( body ):
 	global okToEmitCode
 	
-	processNoCode()
+	emitNoCode()
 	
 	v, isAddr, litFlag, ebytes = calcExpression( lineNumber, body )
 	if v == None:
@@ -893,7 +885,7 @@ def processIf( body ):
 
 def processElse():
 	global okToEmitCode
-	processNoCode()
+	emitNoCode()
 	if len(conditionalStack) < 1:
 		bailout( "Line: %d: Found a conditional block 'else' while not in a conditional block" % lineNumber )
 	f = conditionalStack[-1].blockToElse()
@@ -908,7 +900,7 @@ def processElse():
 	
 def processEndif():
 	global okToEmitCode
-	processNoCode()
+	emitNoCode()
 	if len(conditionalStack) < 1:
 		bailout( "Line: %d: Found a conditional block 'end' while not in a conditional block" % lineNumber )
 		
@@ -921,8 +913,12 @@ def processEndif():
 	logDebug( "Ok to emit code = %d" % okToEmitCode )
 
 
-	
-def processNoCode():
+
+# Emit the contents of a source line that generated no code.
+#
+# This only emits text during pass 2, so it can be called during pass 1 with no ill effects.
+#
+def emitNoCode():
 	if passNumber == 2:
 		if curLine == "":
 			emitListing( "%04X ;              %04d" % (address, lineNumber) )
@@ -942,96 +938,61 @@ def processNoCode():
 def processLine( line ):
 	global curLine
 	
-	line = line.rstrip()	# remove trailing whitespace
+	# line = line.rstrip()	# remove trailing whitespace
 
 	logDebug( "------- Line '%s'" % line )
 	
-	curLine = line
-	
-	line = stripComments(line)
-
-	line = line.rstrip()	# remove trailing whitespace yet again
+	curLine = line.rstrip()	# remove trailing whitespace, just because printing it on on the listing is silly.
 
 	
-	# IF?
-	m = re.match( r'^\s*IF\s+(.+)', line, re.IGNORECASE )
-	if m:
-		# Line is an IF directive
-		body = m.group(1)
-		logDebug( "If: '%s'" % ( body ) )
-		processIf( body )
-		return
-
-
-	# ELSE?
-	m = re.match( r'^\s*ELSE$', line, re.IGNORECASE )
-	if m:
-		# Line is an else directive
-		logDebug( "Else" )
-		processElse()
-		return
-
-
-	# ENDI?
-	m = re.match( r'^\s*ENDI$', line, re.IGNORECASE )
-	if m:
-		# Line is an end if directive
-		logDebug( "End If" )
-		processEndif()
-		return
-
 	
-	if not okToEmitCode:
-		processNoCode()
-		return
+
+	# Put the line back together for the directive 
 	
-	
-	# - - - - - - - - - - - - - - - - -
-	
+	# Some statements are only valid in a single chunk per line scenario, such as equates.
+	# FOO equ 0
+
+	# Some statements are only valid as the first chunk, such as equates and conditionals.
+	#
+	# Do we allow this? vvv
+	# IF FOO; GHI R2
 	
 	# Equate?
-	m = re.match( r'^(\w+)\s+EQU\s+(.*)', line, re.IGNORECASE )
+	m = re.match( r'^\s*(\w+)\s+EQU\s+(.+)', line, re.IGNORECASE )
 	if m:
 		# Line is an equate
+		if not okToEmitCode:
+			# No code emit also means don't process an equate
+			emitNoCode()
+			return
+			
 		label = m.group(1)
 		body = m.group(2)
-		logDebug( "Equate: '%s'   value chunk '%s'" % ( label, body ) )
-		processEquate( label, body )
+		logDebug( "Equate: '%s'   body '%s'" % ( label, body ) )
+		chunker = Chunker.Chunker(body, semicolonComments=altSyntax)
+		logDebug( "chunks: %s" % chunker.chunks )
+		if len(chunker.chunks) != 1:
+			bailout( "Line: %d  Equate body parse failed somehow" % lineNumber )
+		logDebug( "Equate: '%s'   value chunk '%s'" % ( label, chunker.chunks[0] ) )
+		processEquate( label, chunker.chunks[0] )
 		return
-		
-
-	# Org?
-	m = re.match( r'^\s+ORG\s+(.*)', line, re.IGNORECASE )
-	if m:
-		# Line is an origin directive
-		body = m.group(1)
-		logDebug( "Origin: '%s'" % ( body ) )
-		processOrigin( body )
-		return
-		
-
-	# PAGE?
-	m = re.match( r'^\s+PAGE(.*)', line, re.IGNORECASE )
-	if m:
-		# Line is a page directive
-		logDebug( "Page" )
-		processPage()
-		return
-		
-
-	# END?
-	m = re.match( r'^\s+END(.*)', line, re.IGNORECASE )
-	if m:
-		# Line is a END directive
-		logDebug( "End" )
-		# TODO: Should ignore everything after this line?
-		return
-		
-
+	
+	
+	firstChunk = True
+	
+	lineHaslabel = False
+	
 	# Label?
 	m = re.match( r'^(\w+):?\s*(.*)', line )
 	if m:
+		if not okToEmitCode:
+			# No code emit also means don't process an equate
+			emitNoCode()
+			return
+
 		# Line has a label
+		lineHaslabel = True
+		
 		label = m.group(1)
 		body = m.group(2)
 		logDebug( "Label: '%s'   remainder '%s'" % ( label, body ) )
@@ -1041,16 +1002,143 @@ def processLine( line ):
 		elif passNumber == 2:
 			# Make sure the address matches, for sanity checking.
 			confirmSymbolAddress( label, address )
-	else:
-		body = line.lstrip()
+			
+		line = body   # Basically strip the label from the line, then it gets processed as usual.
 		
-	# body = stripComments(body)
-	
-	if body == "":
-		processNoCode()
+	# We call this first off, even though in some cases we don't actually want things
+	# chunked up (such as for equates)
+	# This does get rid of comments, which is important.
+	chunker = Chunker.Chunker(line, semicolonComments=altSyntax)
+
+	if len(chunker.chunks) == 0:
+		# No chunks or label, just an empty line
+		emitNoCode()
 		return
 		
 		
+	startAddr = None
+	lineBytes = bytearray()
+	
+	for chunk in chunker.chunks:
+			
+		# Only the first chunk can be a directive.
+		if firstChunk:
+			firstChunk = False
+			
+			# Directive?
+			if processDirective(chunk) == True:
+				continue
+		
+		body = chunk
+			
+		logDebug( "Body '%s'" % body )
+	
+		if altSyntax == True:
+			m = re.match( r'^DB\s+(.*)', body )
+		else:
+			m = re.match( r'^DC\s+(.*)', body )
+		if m:
+			# Line is a DC directive
+			body = m.group(1)
+			startAddr, bytes = assembleDC( body )
+			lineBytes.extend( bytes )
+		else:
+			addr, bytes = assembleChunk( body )
+			if startAddr == None:
+				startAddr = addr
+			lineBytes.extend( bytes )
+	
+	if passNumber == 2 and len(lineBytes) > 0:
+		emitCode( startAddr, lineBytes )
+			
+		
+   # ADD THE CODE TO EMIT THE LISTING HERE.
+   # Deal with the possibility that there was only a 
+	
+	
+	
+def processDirective(line):
+	
+	# IF?
+	m = re.match( r'^IF\s+(.+)', line, re.IGNORECASE )
+	if m:
+		# Line is an IF directive
+		body = m.group(1)
+		logDebug( "If: '%s'" % ( body ) )
+		processIf( body )
+		return True
+
+
+	# ELSE?
+	m = re.match( r'^ELSE$', line, re.IGNORECASE )
+	if m:
+		# Line is an else directive
+		logDebug( "Else" )
+		processElse()
+		return True
+
+
+	# ENDI?
+	m = re.match( r'^ENDI$', line, re.IGNORECASE )
+	if m:
+		# Line is an end if directive
+		logDebug( "End If" )
+		processEndif()
+		return True
+
+	
+	if not okToEmitCode:
+		emitNoCode()
+		return True
+	
+	
+	# - - - - - - - - - - - - - - - - -
+	
+	
+	# # Equate?
+	# m = re.match( r'^(\w+)\s+EQU\s+(.*)', line, re.IGNORECASE )
+	# if m:
+	# 	# Line is an equate
+	# 	label = m.group(1)
+	# 	body = m.group(2)
+	# 	logDebug( "Equate: '%s'   value chunk '%s'" % ( label, body ) )
+	# 	processEquate( label, body )
+	# 	return True
+		
+
+	# Org?
+	m = re.match( r'^ORG\s+(.*)', line, re.IGNORECASE )
+	if m:
+		# Line is an origin directive
+		body = m.group(1)
+		logDebug( "Origin: '%s'" % ( body ) )
+		processOrigin( body )
+		return True
+		
+
+	# PAGE?
+	m = re.match( r'^PAGE(.*)', line, re.IGNORECASE )
+	if m:
+		# Line is a page directive
+		logDebug( "Page" )
+		processPage()
+		return True
+		
+
+	# END?
+	m = re.match( r'^END(.*)', line, re.IGNORECASE )
+	if m:
+		# Line is a END directive
+		logDebug( "End" )
+		# TODO: Should ignore everything after this line?
+		return True
+		
+
+	return False
+	
+	
+	
+def processChunk(body):		
 	logDebug( "Body '%s'" % body )
 		
 	startAddr = None
@@ -1352,5 +1440,7 @@ def main( argv ):
 
 if __name__ == '__main__':
 	sys.exit( main(sys.argv) or 0 )
+	# print(os.getcwd())
+	# sys.exit( main(["cosmacasm", "--noisy", "assembler/test_src/test.src"]) or 0 )
 	
 
