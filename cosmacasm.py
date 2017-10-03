@@ -944,20 +944,14 @@ def processLine( line ):
 	
 	curLine = line.rstrip()	# remove trailing whitespace, just because printing it on on the listing is silly.
 
-	
-	
-
-	# Put the line back together for the directive 
-	
 	# Some statements are only valid in a single chunk per line scenario, such as equates.
 	# FOO equ 0
-
-	# Some statements are only valid as the first chunk, such as equates and conditionals.
 	#
-	# Do we allow this? vvv
-	# IF FOO; GHI R2
+	# Some statements are only valid as the first chunk, such as equates and conditionals.
 	
 	# Equate?
+	# Since equates are allowed to start in the first column, we have to test for them first to prevent
+	# them from being treated as a label.
 	m = re.match( r'^\s*(\w+)\s+EQU\s+(.+)', line, re.IGNORECASE )
 	if m:
 		# Line is an equate
@@ -969,30 +963,25 @@ def processLine( line ):
 		label = m.group(1)
 		body = m.group(2)
 		logDebug( "Equate: '%s'   body '%s'" % ( label, body ) )
+		# The remainder of the equate line (everything after the "equ") must be a single chunk.
 		chunker = Chunker.Chunker(body, semicolonComments=altSyntax)
 		logDebug( "chunks: %s" % chunker.chunks )
 		if len(chunker.chunks) != 1:
-			bailout( "Line: %d  Equate body parse failed somehow" % lineNumber )
+			bailout( "Line: %d  Equate body parse failed" % lineNumber )
 		logDebug( "Equate: '%s'   value chunk '%s'" % ( label, chunker.chunks[0] ) )
 		processEquate( label, chunker.chunks[0] )
 		return
 	
 	
-	firstChunk = True
-	
-	lineHaslabel = False
-	
 	# Label?
 	m = re.match( r'^(\w+):?\s*(.*)', line )
 	if m:
+		# Line has a label
 		if not okToEmitCode:
 			# No code emit also means don't process an equate
 			emitNoCode()
 			return
 
-		# Line has a label
-		lineHaslabel = True
-		
 		label = m.group(1)
 		body = m.group(2)
 		logDebug( "Label: '%s'   remainder '%s'" % ( label, body ) )
@@ -1011,11 +1000,12 @@ def processLine( line ):
 	chunker = Chunker.Chunker(line, semicolonComments=altSyntax)
 
 	if len(chunker.chunks) == 0:
-		# No chunks or label, just an empty line
+		# No chunks or label, just an empty line. Or a label!
 		emitNoCode()
 		return
 		
 		
+	firstChunk = True	# First chunk is special, it can be a directive.	
 	startAddr = None
 	lineBytes = bytearray()
 	
@@ -1027,6 +1017,7 @@ def processLine( line ):
 			
 			# Directive?
 			if processDirective(chunk) == True:
+				# Yes, was a directive. Continue with next chunk
 				continue
 		
 		body = chunk
@@ -1037,23 +1028,25 @@ def processLine( line ):
 			m = re.match( r'^DB\s+(.*)', body )
 		else:
 			m = re.match( r'^DC\s+(.*)', body )
+			
 		if m:
 			# Line is a DC directive
 			body = m.group(1)
 			startAddr, bytes = assembleDC( body )
 			lineBytes.extend( bytes )
 		else:
+			# Looks like we have a normal statment, opcode style!
 			addr, bytes = assembleChunk( body )
 			if startAddr == None:
+				# Capture the address of the first instructions of the line.
+				# (We may acumulate more instructions in subsequent chunks.)
 				startAddr = addr
 			lineBytes.extend( bytes )
 	
 	if passNumber == 2 and len(lineBytes) > 0:
+		# This is the code emiting pass, and we have machine code to emit.
 		emitCode( startAddr, lineBytes )
 			
-		
-   # ADD THE CODE TO EMIT THE LISTING HERE.
-   # Deal with the possibility that there was only a 
 	
 	
 	
@@ -1090,22 +1083,9 @@ def processDirective(line):
 	if not okToEmitCode:
 		emitNoCode()
 		return True
-	
-	
+		
 	# - - - - - - - - - - - - - - - - -
 	
-	
-	# # Equate?
-	# m = re.match( r'^(\w+)\s+EQU\s+(.*)', line, re.IGNORECASE )
-	# if m:
-	# 	# Line is an equate
-	# 	label = m.group(1)
-	# 	body = m.group(2)
-	# 	logDebug( "Equate: '%s'   value chunk '%s'" % ( label, body ) )
-	# 	processEquate( label, body )
-	# 	return True
-		
-
 	# Org?
 	m = re.match( r'^ORG\s+(.*)', line, re.IGNORECASE )
 	if m:
@@ -1133,90 +1113,10 @@ def processDirective(line):
 		# TODO: Should ignore everything after this line?
 		return True
 		
-
 	return False
 	
 	
 	
-def processChunk(body):		
-	logDebug( "Body '%s'" % body )
-		
-	startAddr = None
-	lineBytes = bytearray()
-
-	if altSyntax == True:
-		m = re.match( r'^DB\s+(.*)', body )
-	else:
-		m = re.match( r'^DC\s+(.*)', body )
-	if m:
-		# Line is a DC directive
-		body = m.group(1)
-		startAddr, bytes = assembleDC( body )
-		lineBytes.extend( bytes )
-	else:
-		# Split up sentences based on semicolons, assemble each sentence, and then concatenate all of
-		# the produced machine code bytes to represent the result of the line.
-		chunks = body.split( ";" )
-		for chunk in chunks:
-			chunk = chunk.strip()
-			logDebug( "Chunk: '%s'" % chunk )
-			addr, bytes = assembleChunk( chunk )
-			if startAddr == None:
-				startAddr = addr
-			lineBytes.extend( bytes )
-		
-	if passNumber == 2:
-		emitCode( startAddr, lineBytes )
-		
-		# print( "Addr: 0x%04X" % addr )
-		# print( "Bytes", bytes[0], bytes[1] )
-
-	# m = re.match( r'.*?(\d+)\s*(\d+)/(\d+).*', line )
-	# if m:
-	# 	print "+++              Match '%s'  '%s'  '%s' for %s" % ( m.group(1), m.group(2), m.group(3), line )
-	
-	# m = re.findall( r'([a-fA-F0-9][a-fA-F0-9])', line )
-	# for num in m:
-	# 	b = string.atoi( num, 16 )
-
-
-
-# Strip comments. Comments begin with two periods, or a semicolon (if alt syntax mode).
-def stripComments( body ):
-	line = ""
-	inQuote = False
-	while len(body) > 0:
-		c = body[0]
-		body = body[1:]
-		
-		if inQuote:
-			# Looking only for closing quote
-			if c == "'":
-				inQuote = False
-				line += c
-				continue
-		else:
-			if c == "'":
-				inQuote = True
-			else:
-				if altSyntax == True:
-					# Consider a semicolon a comment
-					if c == ';':
-						break
-				else:
-					if c == '.':
-						if body[0] == '.':
-							# Two dots means comment
-							break
-				
-		line += c
-		
-	if inQuote:
-		bailout( "Line: %d  Missing a closing quote delimiter" % lineNumber )
-
-	return line
-
-
 #----------------------------------------------------------------
 #
 #----------------------------------------------------------------
