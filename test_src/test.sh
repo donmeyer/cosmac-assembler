@@ -9,7 +9,7 @@ cmp --verbose test.hex reference/test.hex
 
 echo ----------------------------------------
 echo Testing test listing
-cmp --verbose test.lst reference/test.lst
+cmp test.lst reference/test.lst
 
 echo
 echo Tests completed
