@@ -24,9 +24,6 @@ class NoClosingQuoteError(ChunkError): pass
 #
 # Quote characters (tick) can be escaped with a backslash. Backslash can also be escaped with a backslash.
 #
-# If a line starts with characters in the first column, we assume that is a label and start a second chunk
-# after the label ends.
-#
 # Examples:
 #	LABEL: GHI R2	   ==>	 "LABEL" and "GHI R2"
 #	  PHI R2; PHI R3   ==>	 "	PHI R2" and "PHI R3"
@@ -42,14 +39,8 @@ class Chunker:
 		self.semicolonComments = semicolonComments
 		self.chunks = []
 		
-		# self.firstColumn = True
-		# if len(line)>0 and ( line[0] == ' ' or line[0] == '\t' ):
-		# 	# Starts with whitespace
-		# 	self.firstColumn = False
-
 		while True:
 			chk = self._nextChunk()
-			# self.firstColumn = False
 			if chk is None:
 				break
 			else:
