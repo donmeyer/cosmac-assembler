@@ -73,6 +73,7 @@ RSTART	DC FILLER	..60 USE	(ROMVAR+0)
 	DC 086H, 'ORIGI', 0CEH	.. ORIGIN
 	DC BSCR-8
 ORGN	DC CONST
+	DC USIZE   .. This should be a single byte!
 FILLER
 	DEC RF
 

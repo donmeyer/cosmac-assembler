@@ -92,46 +92,46 @@ altSyntax = False
 class Symbol:
 	"""
 	name --
+	type - "label", "equ"
 	"""
-	def __init__( self, name, type ):
+	def __init__( self, name, body=None, value=None ):
 		global lineNumber
 		self.lineNumber = lineNumber
 		self.name = name
-		self.type = type
-		self.value = None
-		self.body = None
-		self.is_addr = False
+		self.value = value
+		self.body = body
+		self.ebytes = None
+		
+		if body is not None:
+			self.type = "equ"
+		elif value is not None:
+			# A value means this was created from a label, which is a 16-b it address.
+			self.type = "label"
+			self.ebytes = bytearray()
+			high = value>>8 & 0xFF
+			low = value & 0xFF
+			self.ebytes.append( high )
+			self.ebytes.append( low )
+		else:
+			bailout( "Symbols must have a body or a value when created '%s'" % self.name )
+			
 
 	def __repr__(self):
 		if self.value == None:
 			v = "*UNRESOLVED*"
 		else:
-			if self.is_addr:
-				v = "0x%04X" % self.value
-			elif self.type == "equ":
-				v = "%d" % self.value
-			else:
-				v = value
-		if self.isAddr():
-			adrstr = "addr"
-		else:
-			adrstr = "    "
-		return "{ %16s  %4d  %4s  %s  %8s  %s }" % \
-			( self.name, self.lineNumber, self.type, adrstr, v, self.body )
+			v = "0x%04X" % self.value
+		return "{ %16s  %4d  %5s  %8s  %s }" % \
+			( self.name, self.lineNumber, self.type, v, self.body )
 				
-	def isAddr( self ):
-		return self.is_addr
-
 	# Returns true if symbol was resolved
 	def resolve( self ):
-		if self.value == None:
-			if self.body == None:
+		if self.value is None:
+			if self.body is None:
 				bailout( "Trying to resolve symbol '%s', but no body" % self.name )
-			self.value, isAddr, litFlag, ebytes = calcExpression( self.lineNumber, self.body )
+			self.value, self.ebytes = calcExpression( self.lineNumber, self.body )	# FRAK
 			if self.value == None:
 				return False
-			if isAddr:
-				self.is_addr = True
 		return True
 
 
@@ -192,28 +192,25 @@ def addSymbol( sym ):
 
 
 #
-# An address
+# An address from a label
 #
 # FOO
 #      ..code...
 #
-def addSymbolAddress( name, value ):
-	sym = Symbol( name, "addr" )
-	sym.value = value
-	sym.is_addr = True
+def addSymbolLabel( name, value ):
+	sym = Symbol( name, value=value )
 	addSymbol( sym )
 	return sym
 	
 	
 	
 #
-# Add and equate
+# Add an equate
 #
 # We just store the body in this call, it will be resolved after the first pass completes.
 #
 def addSymbolEquate( name, body ):
-	sym = Symbol( name, "equ" )
-	sym.body = body
+	sym = Symbol( name, body=body )
 	addSymbol( sym )
 	return sym
 
@@ -274,7 +271,7 @@ def dumpSymbols():
 	listingDest.write( "\n\n" )
 	for key in keys:
 		sym = symbols[key]
-		if sym.isAddr():
+		if sym.type == "label":
 			v = "%04X" % sym.value
 			listingDest.write( "%s : %s\n" % ( key, v ) )
 
@@ -283,7 +280,9 @@ def dumpSymbols():
 #
 # Obtain the value for a single token.
 #
-# Returns a tuple of ( sym/hex/dec, value, bytes ). Will return None if a value could not be obtained.
+# Returns a tuple of ( sym, value, bytes ). Will return None if a value could not be obtained.
+
+# Returns ( value, bytes )
 #
 # If "hex", value will be set if 4 or less digits not including an optional leading zero. The byte array is always set.
 # If "dec", value will be set, bytes will not.
@@ -298,12 +297,16 @@ def dumpSymbols():
 #   0AA12AA55FFH
 #
 def obtainTokenValue( lineNumber, token ):
+	bytes = bytearray()
+
 	if token == "$":
-		# return a pseudo-sym
-		sym = Symbol( "$", "addr" )
-		sym.value = address
-		sym.is_addr = True
-		return ( "sym", sym, None )
+		# Here address
+		v = address
+		high = v>>8 & 0xFF
+		low = v & 0xFF
+		bytes.append( high )
+		bytes.append( low )
+		return ( v, bytes )
 
 	m = re.match( r'([0-9][0-9a-fA-F]*)H$', token )
 	if m:
@@ -312,7 +315,6 @@ def obtainTokenValue( lineNumber, token ):
 		logDebug( "Obtained hex value for '%s'" % s )
 		
 		# Convert to a sequence of bytes. (the DC directive needs this behavior)
-		bytes = bytearray()
 		ss = s
 		if len(s) & 1:
 			# Odd might mean leading zero
@@ -328,26 +330,26 @@ def obtainTokenValue( lineNumber, token ):
 			bytes.append( int(d,16) )
 			ss = ss[2:]
 		
-		if len(s) <= 5:
-			# An 8-bit or 16-bit value, also convert it to an integer
-			return ( "hex", int(s,16), bytes )
-		else:
-			return ( "hex", None, bytes )
+		return ( int(s,16), bytes )
 	
 	m = re.match( r'([0-9]+)D?$', token )
 	if m:
-		# Decimal value
+		# Decimal value.
+		# Always return one byte because no real way to know how many bytes intended so at least be predictable.
 		s = m.group(1)
 		logDebug( "Obtained dec value for '%s'" % s )
-		return ( "dec", int(s,10), None )
+		v = int(s,10)
+		low = v & 0xFF
+		bytes.append( low )
+		return ( v, bytes )
 	
 	# Symbol?
 	if token in symbols:
 		logDebug( "Obtained symbol value for token '%s'" % token )
 		sym = symbols[token]		
-		return ( "sym", sym, None )
+		return ( sym.value, sym.ebytes )
 
-	return ( None, None, None )
+	return ( None, None )
 
 
 #
@@ -373,12 +375,12 @@ def obtainTokenValue( lineNumber, token ):
 def calcExpression( lineNumber, body ):
 	value = None
 	ebytes = None
-	addrFlag = False
-	litFlag = True
 	op = "new"
 	
 	logDebug( "Calc expression '%s'" % body )
 
+	maxBytes = 0
+	
 	while True:
 		# Check for an enclosing "function"
 		if altSyntax is True:
@@ -387,7 +389,8 @@ def calcExpression( lineNumber, body ):
 			ma = re.match( r'^A.([0-1])\((\S+)\)', body )
 		if ma:
 			# Low or high byte of address
-			v, addrFlag, litFlag, ebytes = calcExpression( lineNumber, ma.group(2) )
+			logDebug( "Get address byte" )
+			v, ebytes = calcExpression( lineNumber, ma.group(2) )
 			if v == None:
 				bailout( "Line: %d   Invalid argument (calc experssion)" % lineNumber )
 			# elif addrFlag == False:
@@ -399,9 +402,12 @@ def calcExpression( lineNumber, body ):
 				
 			if lowByte is True:
 				v = v & 0xFF
+				ebytes = ebytes[1:]
 			else:
 				v = v>>8 & 0xFF
-			return ( v, addrFlag, litFlag, ebytes )
+				ebytes = ebytes[:1]
+			logDebug( "Address byte 0x%02X  %s" % (v,ebytes) )
+			return ( v, ebytes )
 		
 		
 		m = re.match( r'\s*([\w\$]+)', body )
@@ -417,36 +423,32 @@ def calcExpression( lineNumber, body ):
 			#match the A.0() and set a flag, use contents as expression, then before returning value do the A0/A1 math
 			# or, recurse with contents!
 			
-			what, v, ebytes = obtainTokenValue( lineNumber, s )
-
-			if what == None:
+			v, ebytes = obtainTokenValue( lineNumber, s )
+			logDebug( "Token value is %s - %s" % (v,ebytes) )
+			if v is None:
 				logDebug( "calc expression operand '%s' had no value" % s )
-				return ( None, False, False, None )		# Could not obtain a value
-			elif what == "sym":
-				litFlag = False
-				# 2nd member of tuple is the symbol object in this case
-				sym = v
-				if sym.value == None:
-					# Unresolved symbol
-					logDebug( "calc expression symbol '%s' had no value" % s )
-					return ( None, False, False, None )		# Could not obtain a value
-				else:
-					v = sym.value		# Use the value of the symbol
-					if sym.isAddr():
-						addrFlag = True
+				return ( None, None )		# Could not obtain a value
 
-			logDebug( "calc expression operand type=%s, operator is %s" % ( what, op ) )
+			logDebug( "calc expression operand, operator is %s" % ( op ) )
 
+			# Track the largest literal byte length
+			if ebytes is not None and len(ebytes) > maxBytes:
+				maxBytes = len(ebytes)
+				
 			if op == "new":
 				value = v
 			elif op == "+":
 				value += v
+				ebytes = None   # Doing math, so the bytes will be wrong
 			elif op == "-":
 				value -= v
+				ebytes = None   # Doing math, so the bytes will be wrong
 			elif op == "*":
 				value *= v
+				ebytes = None   # Doing math, so the bytes will be wrong
 			elif op == "/":
 				value /= v
+				ebytes = None   # Doing math, so the bytes will be wrong
 			else:
 				bailout( "Line: %d  Invalid equation op '%s'" % ( lineNumber, op ) )
 			if value:
@@ -459,7 +461,7 @@ def calcExpression( lineNumber, body ):
 			m = re.match( r'\s*([\-\+\*\/])', body )
 			if m:
 				# Found a valid math operator
-				if ebytes and len(ebytes) > 2:
+				if ebytes is not None and len(ebytes) > 2:
 					bailout( "Line: %d   Cannot do math on a long hex sequence" % ( lineNumber ) )
 				s = m.group(1)
 				op = s
@@ -471,7 +473,21 @@ def calcExpression( lineNumber, body ):
 	if op != "idle":
 		bailout( "Line: %d   Missing argument after '%s' operator" % ( lineNumber, op ) )
 		
-	return ( value, addrFlag, litFlag, ebytes )
+	if ebytes is None:
+		# recalculate the bytes
+		logDebug( "Recalculate the byte array. Max bytes %d" % maxBytes )
+		ebytes = bytearray()
+		high = value>>8 & 0xFF
+		low = value & 0xFF
+		if maxBytes > 1:
+			ebytes.append( high )
+		else:
+			if value > 0xFF:
+				bailout( "Value too high error, line %d, body '%s'" % ( lineNumber, body ) )
+			
+		ebytes.append( low )
+		
+	return ( value, ebytes )
 	
 	
 
@@ -512,36 +528,19 @@ def assembleDC( body ):
 			for c in chars:
 				bytes.append( ord(c) )
 		else:
-			v, isAddr, litFlag, ebytes = calcExpression( lineNumber, chunk )
-			if v == None:
+			v, ebytes = calcExpression( lineNumber, chunk )   # FRAK
+			print( "Literal expression evaluated to %s %s" % ( v, ebytes ) )
+			# logDebug( ebytes )
+			if v is None:
 				if passNumber == 1:
 					# Forward ref ok for 1st pass
 					v = 0
+					ebytes = b'\00\00'
 				else:
 					bailout( "Line: %d   Unresolved expression '%s'" % ( lineNumber, chunk ) )
-
-			# if ebytes:
-			# 	# Sequence of bytes
-			# 	bytes.extend( ebytes )
-			# else:
-			# 	high = v>>8 & 0xFF
-			# 	low = v & 0xFF
-			# 	bytes.append( high )
-			# 	bytes.append( low )
-
-			if litFlag == False:
-				high = v>>8 & 0xFF
-				low = v & 0xFF
-				bytes.append( high )
-				bytes.append( low )
-			else:
-				if ebytes:
-					# Sequence of bytes
-					bytes.extend( ebytes )
-				else:
-					if v > 0xFF:
-						bailout( "Value too high error, line %d, chunk '%s'" % ( lineNumber, chunk ) )
-					bytes.append( v )
+			if ebytes is not None:
+				# Sequence of bytes
+				bytes.extend( ebytes )
 
 	address += len(bytes)
 	return ( startAddr, bytes )
@@ -549,14 +548,14 @@ def assembleDC( body ):
 	
 	
 def parseRegister( arg ):
-	m = re.match( r'^R([0-9A-F])', arg )
+	m = re.match( r'^R?([0-9A-F])', arg )
 	if m is not None:
 		return int(m.group(1),16)
 	else:
 		if passNumber == 1:
 			# symbols not resolved yet
 			return 0
-		v, aflag, lflag, ebytes = calcExpression( lineNumber, arg )
+		v, ebytes = calcExpression( lineNumber, arg )
 		# print( v, aflag, lflag, ebytes )
 		if v is not None:
 			if v < 0 or v > 15:
@@ -588,8 +587,8 @@ def assembleImmediate( opBase, arg, bytes ):
 		bytes.append( 0 )
 		return
 	
-	v, addrFlag, litFlag, ebytes = calcExpression( lineNumber, arg )
-	if v == None:
+	v, ebytes = calcExpression( lineNumber, arg )
+	if v is None:
 		bailout( "Line: %d   Invalid argument (immediate) '%s'" % (lineNumber, arg) )
 	elif v > 0xFF:
 		bailout( "Line: %d   Argument out of range, must be 0-255" % lineNumber )
@@ -607,11 +606,9 @@ def assembleShortBranch( opBase, arg, bytes ):
 		bytes.append( 0 )
 		return
 
-	v, addrFlag, litFlag, ebytes = calcExpression( lineNumber, arg )
-	if v == None:
+	v, ebytes = calcExpression( lineNumber, arg )	# FRAK
+	if v is None:
 		bailout( "Line: %d   Invalid argument (short branch)" % lineNumber )
-	elif addrFlag == False:
-		bailout( "Line: %d   Invalid argument, must be an address" % lineNumber )
 	logDebug( "SB arg addr is 0x%04X" % ( address+1 ) )
 	a_page = (address+1)>>8 & 0xFF
 	b_page = (v)>>8 & 0xFF
@@ -630,11 +627,9 @@ def assembleLongBranch( opBase, arg, bytes ):
 		bytes.append( 0 )
 		return
 
-	v, addrFlag, litFlag, ebytes = calcExpression( lineNumber, arg )
+	v, ebytes = calcExpression( lineNumber, arg )	# FRAK
 	if v == None:
 		bailout( "Line: %d   Invalid argument (long branch)" % lineNumber )
-	elif addrFlag == False:
-		bailout( "Line: %d   Invalid argument, must be an address" % lineNumber )
 	bytes.append( opBase )
 	bytes.append( v>>8 & 0xFF )
 	bytes.append( v & 0xFF )
@@ -844,8 +839,8 @@ def processEquate( label, body ):
 def processOrigin( body ):
 	global address
 	
-	v, isAddr, litFlag, ebytes = calcExpression( lineNumber, body )
-	if v == None:
+	v, ebytes = calcExpression( lineNumber, body )
+	if v is None:
 		bailout( "Line: %d  Unable to resolve origin address for '%s'" % ( lineNumber, body ) )
 	
 	emitNoCode()
@@ -872,8 +867,8 @@ def processIf( body ):
 	
 	emitNoCode()
 	
-	v, isAddr, litFlag, ebytes = calcExpression( lineNumber, body )
-	if v == None:
+	v, ebytes = calcExpression( lineNumber, body )
+	if v is None:
 		bailout( "Line: %d  Unable to resolve conditional expression for '%s'" % ( lineNumber, body ) )
 	c = ConditionalBlock( okToEmitCode, v != 0 )
 	conditionalStack.append(c)
@@ -987,7 +982,7 @@ def processLine( line ):
 		logDebug( "Label: '%s'   remainder '%s'" % ( label, body ) )
 		if passNumber == 1:
 			# Add it to the symbol table!
-			addSymbolAddress( label, address )
+			addSymbolLabel( label, address )
 		elif passNumber == 2:
 			# Make sure the address matches, for sanity checking.
 			confirmSymbolAddress( label, address )
@@ -1110,6 +1105,7 @@ def processDirective(line):
 	if m:
 		# Line is a END directive
 		logDebug( "End" )
+		emitNoCode()
 		# TODO: Should ignore everything after this line?
 		return True
 		
@@ -1342,5 +1338,6 @@ if __name__ == '__main__':
 	sys.exit( main(sys.argv) or 0 )
 	# print(os.getcwd())
 	# sys.exit( main(["cosmacasm", "--noisy", "assembler/test_src/test.src"]) or 0 )
+	sys.exit( main(["cosmacasm", "--noisy", "assembler/test_dc.src"]) or 0 )
 	
 
