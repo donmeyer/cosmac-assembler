@@ -105,13 +105,9 @@ class Symbol:
 		if body is not None:
 			self.type = "equ"
 		elif value is not None:
-			# A value means this was created from a label, which is a 16-b it address.
+			# A value means this was created from a label, which is a 16-bit address.
 			self.type = "label"
-			self.ebytes = bytearray()
-			high = value>>8 & 0xFF
-			low = value & 0xFF
-			self.ebytes.append( high )
-			self.ebytes.append( low )
+			self.ebytes = buildBytes( value, 2 )
 		else:
 			bailout( "Symbols must have a body or a value when created '%s'" % self.name )
 			
@@ -277,6 +273,29 @@ def dumpSymbols():
 
 	
 
+
+def buildBytes( value, numBytes ):
+	if numBytes == 1:
+		if value > 0xFF:
+			bailout( "Value too high error (8-bits), line %d, body '%s'" % ( lineNumber, body ) )
+	elif numBytes == 2:
+		if value > 0xFFFF:
+			bailout( "Value too high error (16-bits), line %d, body '%s'" % ( lineNumber, body ) )
+	else:
+		bailout( "Num bytes for conversion cannot exceed 2, line %d, body '%s'" % ( lineNumber, body ) )
+		
+	ebytes = bytearray()
+	if numBytes == 2:
+		high = (value>>8) & 0xFF
+		ebytes.append( high )
+
+	low = value & 0xFF
+	ebytes.append( low )
+	
+	return ebytes
+	
+	
+	
 #
 # Obtain the value for a single token.
 #
@@ -301,12 +320,8 @@ def obtainTokenValue( lineNumber, token ):
 
 	if token == "$":
 		# Here address
-		v = address
-		high = v>>8 & 0xFF
-		low = v & 0xFF
-		bytes.append( high )
-		bytes.append( low )
-		return ( v, bytes )
+		ebytes = buildBytes( address, 2 )
+		return ( address, ebytes )
 
 	m = re.match( r'([0-9][0-9a-fA-F]*)H$', token )
 	if m:
@@ -476,17 +491,8 @@ def calcExpression( lineNumber, body ):
 	if ebytes is None:
 		# recalculate the bytes
 		logDebug( "Recalculate the byte array. Max bytes %d" % maxBytes )
-		ebytes = bytearray()
-		high = value>>8 & 0xFF
-		low = value & 0xFF
-		if maxBytes > 1:
-			ebytes.append( high )
-		else:
-			if value > 0xFF:
-				bailout( "Value too high error, line %d, body '%s'" % ( lineNumber, body ) )
-			
-		ebytes.append( low )
-		
+		ebytes = buildBytes( value, maxBytes )
+					
 	return ( value, ebytes )
 	
 	
@@ -1335,7 +1341,7 @@ def main( argv ):
 	
 
 if __name__ == '__main__':
-	sys.exit( main(sys.argv) or 0 )
+	# sys.exit( main(sys.argv) or 0 )
 	# print(os.getcwd())
 	# sys.exit( main(["cosmacasm", "--noisy", "assembler/test_src/test.src"]) or 0 )
 	sys.exit( main(["cosmacasm", "--noisy", "assembler/test_dc.src"]) or 0 )
