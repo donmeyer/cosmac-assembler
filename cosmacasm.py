@@ -122,6 +122,7 @@ class Symbol:
 				
 	# Returns true if symbol was resolved
 	def resolve( self ):
+		logDebug("Resolving symbol %s" % self.name )
 		if self.value is None:
 			if self.body is None:
 				bailout( "Trying to resolve symbol '%s', but no body" % self.name )
@@ -277,12 +278,12 @@ def dumpSymbols():
 def buildBytes( value, numBytes ):
 	if numBytes == 1:
 		if value > 0xFF:
-			bailout( "Value too high error (8-bits), line %d, body '%s'" % ( lineNumber, body ) )
+			bailout( "Value too high error (8-bits), line %d, value %d" % ( lineNumber, value ) )
 	elif numBytes == 2:
 		if value > 0xFFFF:
-			bailout( "Value too high error (16-bits), line %d, body '%s'" % ( lineNumber, body ) )
+			bailout( "Value too high error (16-bits), line %d, value %d" % ( lineNumber, value ) )
 	else:
-		bailout( "Num bytes for conversion cannot exceed 2, line %d, body '%s'" % ( lineNumber, body ) )
+		bailout( "Num bytes for conversion cannot exceed 2, line %d" % ( lineNumber ) )
 		
 	ebytes = bytearray()
 	if numBytes == 2:
@@ -299,14 +300,7 @@ def buildBytes( value, numBytes ):
 #
 # Obtain the value for a single token.
 #
-# Returns a tuple of ( sym, value, bytes ). Will return None if a value could not be obtained.
-
-# Returns ( value, bytes )
-#
-# If "hex", value will be set if 4 or less digits not including an optional leading zero. The byte array is always set.
-# If "dec", value will be set, bytes will not.
-# if "sym", value will be the symbol object itself.
-# If none of the above, all tuple members will be None.
+# Returns a tuple of ( value, bytes ). Will return None if a value could not be obtained.
 # 
 # Examples:
 #   7EH
@@ -316,13 +310,14 @@ def buildBytes( value, numBytes ):
 #   0AA12AA55FFH
 #
 def obtainTokenValue( lineNumber, token ):
-	bytes = bytearray()
+	ebytes = bytearray()
 
+	# Is this the "here" address?
 	if token == "$":
-		# Here address
 		ebytes = buildBytes( address, 2 )
 		return ( address, ebytes )
 
+	# Look for a hexadecimal value. These can be very long.
 	m = re.match( r'([0-9][0-9a-fA-F]*)H$', token )
 	if m:
 		# Hex value
@@ -342,28 +337,30 @@ def obtainTokenValue( lineNumber, token ):
 
 		while len(ss) > 0:
 			d = ss[:2]
-			bytes.append( int(d,16) )
+			ebytes.append( int(d,16) )
 			ss = ss[2:]
 		
-		return ( int(s,16), bytes )
+		return ( int(s,16), ebytes )
 	
+	# Look for a decimal value.
 	m = re.match( r'([0-9]+)D?$', token )
 	if m:
-		# Decimal value.
-		# Always return one byte because no real way to know how many bytes intended so at least be predictable.
+		# Always return just one byte because no real way to know how many bytes intended so at least be predictable?
 		s = m.group(1)
 		logDebug( "Obtained dec value for '%s'" % s )
 		v = int(s,10)
-		low = v & 0xFF
-		bytes.append( low )
-		return ( v, bytes )
+		bc = 1
+		if v > 0xFF:
+			bc = 2
+		return ( v, buildBytes(v,bc) )
 	
-	# Symbol?
+	# Is it a Symbol?
 	if token in symbols:
 		logDebug( "Obtained symbol value for token '%s'" % token )
 		sym = symbols[token]		
 		return ( sym.value, sym.ebytes )
 
+	# If we get here, we failed to 
 	return ( None, None )
 
 
@@ -452,20 +449,19 @@ def calcExpression( lineNumber, body ):
 				
 			if op == "new":
 				value = v
-			elif op == "+":
-				value += v
-				ebytes = None   # Doing math, so the bytes will be wrong
-			elif op == "-":
-				value -= v
-				ebytes = None   # Doing math, so the bytes will be wrong
-			elif op == "*":
-				value *= v
-				ebytes = None   # Doing math, so the bytes will be wrong
-			elif op == "/":
-				value /= v
-				ebytes = None   # Doing math, so the bytes will be wrong
 			else:
-				bailout( "Line: %d  Invalid equation op '%s'" % ( lineNumber, op ) )
+				# Math operator was found in last iteration, what we have now is the value after that operator
+				if op == "+":
+					value += v
+				elif op == "-":
+					value -= v
+				elif op == "*":
+					value *= v
+				elif op == "/":
+					value /= v
+				else:
+					bailout( "Line: %d  Invalid equation operator '%s'" % ( lineNumber, op ) )
+				ebytes = None   # Doing math, so the bytes will be wrong
 			if value:
 				logDebug( "Bingo '%s' %d %d = %d" % (s, m.start(), m.end(), value) )
 			else:
@@ -487,7 +483,11 @@ def calcExpression( lineNumber, body ):
 			
 	if op != "idle":
 		bailout( "Line: %d   Missing argument after '%s' operator" % ( lineNumber, op ) )
-		
+	
+	if value > 0xFF and maxBytes == 1:
+		logWarning( "Expression calculation increased a 1-byte value to 2-bytes (%d)" % value )
+		maxBytes = 2
+	
 	if ebytes is None:
 		# recalculate the bytes
 		logDebug( "Recalculate the byte array. Max bytes %d" % maxBytes )
@@ -535,7 +535,7 @@ def assembleDC( body ):
 				bytes.append( ord(c) )
 		else:
 			v, ebytes = calcExpression( lineNumber, chunk )   # FRAK
-			print( "Literal expression evaluated to %s %s" % ( v, ebytes ) )
+			# print( "Literal expression evaluated to %s %s" % ( v, ebytes ) )
 			# logDebug( ebytes )
 			if v is None:
 				if passNumber == 1:
@@ -1271,6 +1271,10 @@ def logDebug( msg ):
 		print( msg )
 
 
+def logWarning( msg ):
+	if passNumber == 2:
+		print( "WARN: Line %d: %s" % ( lineNumber, msg ) )
+	
 
 def bailout( msg ):
 	if __name__ == '__main__':
@@ -1341,9 +1345,10 @@ def main( argv ):
 	
 
 if __name__ == '__main__':
-	# sys.exit( main(sys.argv) or 0 )
 	# print(os.getcwd())
 	# sys.exit( main(["cosmacasm", "--noisy", "assembler/test_src/test.src"]) or 0 )
-	sys.exit( main(["cosmacasm", "--noisy", "assembler/test_dc.src"]) or 0 )
+	sys.exit( main(["cosmacasm", "assembler/test_dc.src"]) or 0 )
+	# sys.exit( main(["cosmacasm", "--noisy", "assembler/test_dc.src"]) or 0 )
+	sys.exit( main(sys.argv) or 0 )
 	
 
