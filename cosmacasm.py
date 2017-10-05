@@ -1347,7 +1347,7 @@ def main( argv ):
 if __name__ == '__main__':
 	# print(os.getcwd())
 	# sys.exit( main(["cosmacasm", "--noisy", "assembler/test_src/test.src"]) or 0 )
-	sys.exit( main(["cosmacasm", "assembler/test_dc.src"]) or 0 )
+	# sys.exit( main(["cosmacasm", "assembler/test_dc.src"]) or 0 )
 	# sys.exit( main(["cosmacasm", "--noisy", "assembler/test_dc.src"]) or 0 )
 	sys.exit( main(sys.argv) or 0 )
 	
