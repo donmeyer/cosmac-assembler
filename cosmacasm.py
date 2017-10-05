@@ -396,10 +396,12 @@ def calcExpression( lineNumber, body ):
 	while True:
 		# Check for an enclosing "function"
 		if altSyntax is True:
-			ma = re.match( r'^(LOW|HIGH)\((\S+)\)', body )
+			ma = re.match( r'^(LOW|HIGH)\((\S+)\)', body, re.IGNORECASE )
+			if ma is None:
+				ma = re.match( r'^(LOW|HIGH)\s+(\S+)', body, re.IGNORECASE )
 		else:
 			ma = re.match( r'^A.([0-1])\((\S+)\)', body )
-		if ma:
+		if ma is not None:
 			# Low or high byte of address
 			logDebug( "Get address byte" )
 			v, ebytes = calcExpression( lineNumber, ma.group(2) )
@@ -408,7 +410,7 @@ def calcExpression( lineNumber, body ):
 			# elif addrFlag == False:
 			# 	bailout( "Line: %d   Argument must be an address" % lineNumber )
 			if altSyntax is True:
-				lowByte = ma.group(1) == 'LOW'
+				lowByte = ma.group(1).upper() == 'LOW'
 			else:
 				lowByte = ma.group(1) == '0'
 				
