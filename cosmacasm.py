@@ -1173,7 +1173,7 @@ def assembleFile( src ):
 	lines = src.readlines()
 	
 	firstPass( lines )
-	print( "Last address used: 0x%04X" % (address-1) )
+	logVerbose( "Last address used: 0x%04X" % (address-1) )
 	
 	if sizeLimit:
 		if address >= sizeLimit:
@@ -1185,8 +1185,8 @@ def assembleFile( src ):
 		pgmImage.append( 0xFF )	# pad byte	
 	
 	resolveSymbols()
-	if verbose > 1:
-		dumpSymbols()
+	# if verbose > 1:
+	# 	dumpSymbols()
 	
 	secondPass( lines )
 
