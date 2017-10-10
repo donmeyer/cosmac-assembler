@@ -311,7 +311,7 @@ def buildBytes( value, numBytes ):
 #   0AA12AA55FFH
 #
 def obtainTokenValue( token ):
-	logDebug( "Obtaining token value of '%s" % token )
+	logDebug( "Obtaining token value of '%s'" % token )
 	ebytes = bytearray()
 
 	# Is this the "here" address?
@@ -508,11 +508,21 @@ def evalArg( lineNumber, parser, accumValue, maxBytes ):
 			# Not an operator, must be a value
 			
 			if accumValue is None:
-				value, ebytes = obtainTokenValue( s )
-				logDebug( "Token value is %s - %s" % (value,ebytes) )
-				if value is None:
-					return ( None, None )		# Could not obtain a value
-				maxBytes = max(maxBytes,len(ebytes))
+				
+				# A character constant?
+				m = re.match( r"'(.)'", s )
+				if m:
+					s = m.group(1)
+					chars = list(s)
+					value = ord(chars[0])
+					maxBytes = max(maxBytes,1)
+				else:
+				
+					value, ebytes = obtainTokenValue( s )
+					logDebug( "Token value is %s - %s" % (value,ebytes) )
+					if value is None:
+						return ( None, None )		# Could not obtain a value
+					maxBytes = max(maxBytes,len(ebytes))
 			else:
 				bailout( "Line: %d   Expected operator but found value '%s'" % ( lineNumber, s ) )
 				
