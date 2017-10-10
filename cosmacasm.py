@@ -43,6 +43,7 @@ import re
 import string
 
 import Chunker
+import Parser
 
 
 
@@ -95,7 +96,6 @@ class Symbol:
 	type - "label", "equ"
 	"""
 	def __init__( self, name, body=None, value=None ):
-		global lineNumber
 		self.lineNumber = lineNumber
 		self.name = name
 		self.value = value
@@ -129,6 +129,7 @@ class Symbol:
 			self.value, self.ebytes = calcExpression( self.lineNumber, self.body )	# FRAK
 			if self.value == None:
 				return False
+		logDebug( "Symbol '%s' resolved as %d - %s" % ( self.name, self.value, self.ebytes ) )
 		return True
 
 
@@ -231,7 +232,7 @@ def resolveSymbols():
 		print( "Resolve symbols..." )
 		
 	lastFailCount = None
-	while 1:
+	while True:
 		logDebug( "Symbols resolution pass" )
 		failCount = 0
 		for key in symbols:
@@ -309,7 +310,8 @@ def buildBytes( value, numBytes ):
 #   12AA55FFH
 #   0AA12AA55FFH
 #
-def obtainTokenValue( lineNumber, token ):
+def obtainTokenValue( token ):
+	logDebug( "Obtaining token value of '%s" % token )
 	ebytes = bytearray()
 
 	# Is this the "here" address?
@@ -361,13 +363,15 @@ def obtainTokenValue( lineNumber, token ):
 		return ( sym.value, sym.ebytes )
 
 	# If we get here, we failed to 
+	logDebug( "Failed to obtain value for '%s'" % token )
 	return ( None, None )
+
 
 
 #
 # Parses a constant, symbol, or equation and returns the numeric value.
 #
-# Returns a tuple of ( value, addrFlag, litFlag, bytes ). Will return None if a value could not be obtained.
+# Returns a tuple of ( value, ebytes ). Will return None if a value could not be obtained.
 #
 # If no value available, returns None.
 # If any component was an address, the address flag will be true.
@@ -383,121 +387,145 @@ def obtainTokenValue( lineNumber, token ):
 #   BSCR-8
 #   ROMVAR + 1AH
 #	A.0(BEEP)
+#	MICE + HIGH START
+#	MICE + HIGH START + 4
 #
 def calcExpression( lineNumber, body ):
-	value = None
-	ebytes = None
-	op = "new"
-	
 	logDebug( "Calc expression '%s'" % body )
+	parser = Parser.Parser(body)
+	return evaluate( lineNumber, parser, 1 )
+	
 
-	maxBytes = 0
+
+#
+#
+#
+def evaluate( lineNumber, parser, maxBytes ):
+	logDebug( "+++ Evaluate '%s'" % parser.line )
+	
+	accumValue = None
+	ebytes = None
 	
 	while True:
-		# Check for an enclosing "function"
-		if altSyntax is True:
-			ma = re.match( r'^(LOW|HIGH)\((\S+)\)', body, re.IGNORECASE )
-			if ma is None:
-				ma = re.match( r'^(LOW|HIGH)\s+(\S+)', body, re.IGNORECASE )
+		v, ebytes = evalArg( lineNumber, parser, accumValue, maxBytes )
+		if v is not None:
+			logDebug( "arg evaluated to %d - %s" % (v,ebytes) )
+			accumValue = v
+			maxBytes = max(maxBytes,len(ebytes))
 		else:
-			ma = re.match( r'^A.([0-1])\((\S+)\)', body )
+			break
+		
+	# recalculate the bytes
+	if accumValue is not None:
+		logDebug( "Recalculate the byte array. Max bytes %d" % maxBytes )
+		ebytes = buildBytes( accumValue, maxBytes )
+
+	logDebug( "--- Evaluate returning %s : %s" % (accumValue,ebytes) )
+	return ( accumValue, ebytes )
+	
+	
+
+# evalArg - Parse value, parenthasized expression, ninary op, or unary op
+#
+# if accumValue is None:
+# 			value - store it
+# 			op - error
+# 			unary - evalArg
+# 			parens - eval subParser
+#
+# if accumValue is set:
+# 			value - error
+# 			op - parseValue
+# 			unary - parseValue
+# 			parens - error
+
+def evalArg( lineNumber, parser, accumValue, maxBytes ):
+	s, parenthesized = parser.nextItem()
+	logDebug( "Parsed '%s'" % s )
+	if s is None:
+		# Finished
+		return( None, None )
+		
+	if parenthesized:
+		if accumValue is None:
+			# Needs to be broken down further, recurse with the paren contents
+			subParser = Parser.Parser(s)
+			logDebug( "calling evaluate for parenthesized expression '%s'" % s)
+			value, ebytes = evaluate(lineNumber,subParser,maxBytes)
+			if ebytes is not None:
+				maxBytes = max(maxBytes,len(ebytes))
+		else:
+			bailout( "Line: %d   Expected operator but found parenthesized expression '%s'" % ( lineNumber, s ) )
+	else:
+		# Single atomic token
+	
+		# Check for single argument operators.
+		# A.0, A.1, HIGH, LOW
+		
+		if altSyntax is True:
+			ma = re.match( r'^(LOW|HIGH)$', s, re.IGNORECASE )
+		else:
+			ma = re.match( r'^A.([0-1])$', s )
+			
 		if ma is not None:
-			# Low or high byte of address
+			# Unary Operator - Low or high byte of address
 			logDebug( "Get address byte" )
-			v, ebytes = calcExpression( lineNumber, ma.group(2) )
-			if v == None:
-				bailout( "Line: %d   Invalid argument (calc experssion)" % lineNumber )
-			# elif addrFlag == False:
-			# 	bailout( "Line: %d   Argument must be an address" % lineNumber )
+			v, ebytes = evalArg( lineNumber, parser, accumValue, maxBytes )
+			maxBytes = 1
+
 			if altSyntax is True:
-				lowByte = ma.group(1).upper() == 'LOW'
+				lowByte = s.upper() == 'LOW'
 			else:
 				lowByte = ma.group(1) == '0'
 				
 			if lowByte is True:
-				v = v & 0xFF
-				ebytes = ebytes[1:]
+				value = v & 0xFF
 			else:
-				v = v>>8 & 0xFF
-				ebytes = ebytes[:1]
-			logDebug( "Address byte 0x%02X  %s" % (v,ebytes) )
-			return ( v, ebytes )
-		
-		
-		m = re.match( r'\s*([\w\$]+)', body )
-		if m:
-			s = m.group(1)
-			
-			logDebug( "Matched '%s'" % s )
-			# print( s )
-			
-			if op == "idle":
-				bailout( "Line: %d   illegal operator '%s'" % ( lineNumber, s ) )
-			
-			#match the A.0() and set a flag, use contents as expression, then before returning value do the A0/A1 math
-			# or, recurse with contents!
-			
-			v, ebytes = obtainTokenValue( lineNumber, s )
-			logDebug( "Token value is %s - %s" % (v,ebytes) )
-			if v is None:
-				logDebug( "calc expression operand '%s' had no value" % s )
-				return ( None, None )		# Could not obtain a value
-
-			logDebug( "calc expression operand, operator is %s" % ( op ) )
-
-			# Track the largest literal byte length
-			if ebytes is not None and len(ebytes) > maxBytes:
-				maxBytes = len(ebytes)
+				value = (v>>8) & 0xFF
 				
-			if op == "new":
-				value = v
-			else:
-				# Math operator was found in last iteration, what we have now is the value after that operator
-				if op == "+":
-					value += v
-				elif op == "-":
-					value -= v
-				elif op == "*":
-					value *= v
-				elif op == "/":
-					value /= v
-				else:
-					bailout( "Line: %d  Invalid equation operator '%s'" % ( lineNumber, op ) )
-				ebytes = None   # Doing math, so the bytes will be wrong
-			if value:
-				logDebug( "Bingo '%s' %d %d = %d" % (s, m.start(), m.end(), value) )
-			else:
-				logDebug( "Bingo '%s' %d %d = %s" % (s, m.start(), m.end(), bytes) )
-			body = body[m.end():]
-			logDebug( "Look for math operator in '%s'" % body )
-			op = "idle"
-			m = re.match( r'\s*([\-\+\*\/])', body )
-			if m:
-				# Found a valid math operator
-				if ebytes is not None and len(ebytes) > 2:
-					bailout( "Line: %d   Cannot do math on a long hex sequence" % ( lineNumber ) )
-				s = m.group(1)
-				op = s
-				logDebug( "Bango '%s' %d %d" % (s, m.start(), m.end()) )
-				body = body[m.end():]
-		else:
-			break
+		elif re.match( r'\s*([\-\+\*\/])', s ) is not None:
+			# Binary Operator
 			
-	if op != "idle":
-		bailout( "Line: %d   Missing argument after '%s' operator" % ( lineNumber, op ) )
-	
-	if value > 0xFF and maxBytes == 1:
-		logWarning( "Expression calculation increased a 1-byte value to 2-bytes (%d)" % value )
-		maxBytes = 2
-	
-	if ebytes is None:
-		# recalculate the bytes
+			if accumValue is None:
+				bailout( "Line: %d   Found binary operator '%s' but expected value or unary operator" % ( lineNumber, s ) )
+			else:
+				v, ebytes = evaluate( lineNumber, parser, maxBytes )
+				if v is None:
+					bailout( "Line: %d   Bad argument for operator '%s'" % ( lineNumber, s ) )
+					
+				logDebug( "Adding %d to %d" % (v,accumValue))
+				if s == '+':
+					value = accumValue + v
+				if s == '-':
+					value = accumValue - v
+				if s == '*':
+					value = accumValue * v
+				if s == '/':
+					value = accumValue / v
+					
+				maxBytes = max(maxBytes,len(ebytes))
+		else:
+			# Not an operator, must be a value
+			
+			if accumValue is None:
+				value, ebytes = obtainTokenValue( s )
+				logDebug( "Token value is %s - %s" % (value,ebytes) )
+				if value is None:
+					return ( None, None )		# Could not obtain a value
+				maxBytes = max(maxBytes,len(ebytes))
+			else:
+				bailout( "Line: %d   Expected operator but found value '%s'" % ( lineNumber, s ) )
+				
+				
+	# recalculate the bytes
+	if value is not None:
 		logDebug( "Recalculate the byte array. Max bytes %d" % maxBytes )
 		ebytes = buildBytes( value, maxBytes )
-					
+
+	logDebug( "--- Evaluate returning %s : %s" % (value,ebytes) )
 	return ( value, ebytes )
-	
-	
+
+
 
 #----------------------------------------------------------------
 #
@@ -1350,7 +1378,8 @@ if __name__ == '__main__':
 	# print(os.getcwd())
 	# sys.exit( main(["cosmacasm", "--noisy", "assembler/test_src/test.src"]) or 0 )
 	# sys.exit( main(["cosmacasm", "assembler/test_dc.src"]) or 0 )
-	# sys.exit( main(["cosmacasm", "--noisy", "assembler/test_dc.src"]) or 0 )
+	# sys.exit( main(["cosmacasm", "--noisy", "assembler/test/test_dc.src"]) or 0 )
+	# sys.exit( main(["cosmacasm", "--noisy", "assembler/test/test_exp.src"]) or 0 )
 	sys.exit( main(sys.argv) or 0 )
 	
 
