@@ -1,0 +1,50 @@
+0000 ;              0001
+0000 ;              0002
+0000 ;              0003  BEEP_A  EQU 0AB12H
+0000 ;              0004  MICE    EQU 8
+0000 ;              0005  RATS_A  equ 03200H
+0000 ;              0006  LARGE   equ  300
+0000 ;              0007
+0000 ;              0008
+0000 ;              0009  START
+0000 ;              0010
+0000 07;            0011  	DC 7              .. 07
+0001 AB;            0012  	DC A.1 BEEP_A     .. AB
+0002 ;              0013
+0002 AB13;          0014  	DC BEEP_A + 1     .. AB13
+0004 ;              0015
+0004 AB;            0016  	DC A.1(BEEP_A+1)  .. AB
+0005 ;              0017
+0005 AC;            0018  	DC (A.1(BEEP_A) + 1)  .. AC
+0006 ;              0019
+0006 AD;            0020  	DC A.1(BEEP_A) + 2    .. AD
+0007 ;              0021
+0007 AD;            0022  	DC A.1 BEEP_A + 2     .. AD
+0008 ;              0023
+0008 A9;            0024  	DC A.1 BEEP_A - 2     .. A9
+0009 ;              0025
+0009 32AB;          0026  	DC A.1(BEEP_A) + RATS_A    .. 32AB
+000B 32AB;          0027  	DC RATS_A + A.1(BEEP_A)    .. 32AB
+000D ;              0028
+000D AF;            0029  	DC 3 + A.1(BEEP_A) + 1    .. AF
+000E ;              0030
+000E 012C;          0031  	DC LARGE			.. 012C
+0010 ;              0032
+0010 FBFF;          0033  	XRI 0FFH			.. FBFF
+0012 ;              0034
+0012 FB24;          0035  	XRI '$'			.. FB24
+0014 ;              0036
+0014 7261747307;    0037  	DC 'rats', 7
+0019 ;              0038
+0019 ;              0039
+
+
+------------------- Symbols by Name ----------------------
+          BEEP_A : {           BEEP_A     3    equ    0xAB12  0AB12H }
+           LARGE : {            LARGE     6    equ    0x012C  300 }
+            MICE : {             MICE     4    equ    0x0008  8 }
+          RATS_A : {           RATS_A     5    equ    0x3200  03200H }
+           START : {            START     9  label    0x0000  None }
+
+
+START : 0000

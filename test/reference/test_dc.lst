@@ -1,0 +1,40 @@
+0000 ;              0001
+0000 ;              0002  BEEP_A  EQU 0AB12H
+0000 ;              0003  MICE    EQU 8
+0000 ;              0004  LARGE   equ  300
+0000 ;              0005
+0000 ;              0006  	ORG 1000H
+1000 ;              0007
+1000 ;              0008  START
+1000 ;              0009
+1000 ;              0010  ..8-bit
+1000 07;            0011  	DC 7              .. 07
+1001 AB;            0012  	DC A.1(BEEP_A)    .. AB
+1002 12;            0013  	DC A.0(BEEP_A)    .. 12
+1003 08;            0014  	DC MICE           .. 08
+1004 ;              0015
+1004 ;              0016  ..16-bit
+1004 0023;          0017  	DC 0023H          .. 0023
+1006 AB12;          0018  	DC BEEP_A         .. AB12
+1008 AB14;          0019  	DC BEEP_A + 2     .. AB14
+100A 1000;          0020  	DC START          .. 1000
+100C 1008;          0021  	DC START + MICE   .. 1008
+100E ;              0022
+100E ;              0023
+100E ;              0024  	..DC MICE+255       .. 0107  Value too high warning
+100E ;              0025  	..DC 0FEH+MICE      .. 0106  Value too high warning
+100E ;              0026
+100E ;              0027  ..byte stream
+100E ;              0028
+100E 52617473;      0029  	DC 'Rats'         .. 52617473
+1012 ;              0030
+
+
+------------------- Symbols by Name ----------------------
+          BEEP_A : {           BEEP_A     2    equ    0xAB12  0AB12H }
+           LARGE : {            LARGE     4    equ    0x012C  300 }
+            MICE : {             MICE     3    equ    0x0008  8 }
+           START : {            START     8  label    0x1000  None }
+
+
+START : 1000

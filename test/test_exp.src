@@ -1,0 +1,39 @@
+
+
+BEEP_A  EQU 0AB12H
+MICE    EQU 8
+RATS_A  equ 03200H
+LARGE   equ  300
+
+	
+START
+
+	DC 7              .. 07
+	DC A.1 BEEP_A     .. AB
+
+	DC BEEP_A + 1     .. AB13
+	
+	DC A.1(BEEP_A+1)  .. AB
+	
+	DC (A.1(BEEP_A) + 1)  .. AC
+	
+	DC A.1(BEEP_A) + 2    .. AD
+
+	DC A.1 BEEP_A + 2     .. AD
+
+	DC A.1 BEEP_A - 2     .. A9
+	
+	DC A.1(BEEP_A) + RATS_A    .. 32AB
+	DC RATS_A + A.1(BEEP_A)    .. 32AB
+	
+	DC 3 + A.1(BEEP_A) + 1    .. AF
+	
+	DC LARGE			.. 012C
+	
+	XRI 0FFH			.. FBFF
+
+	XRI '$'			.. FB24
+	
+	DC 'rats', 7
+	
+	

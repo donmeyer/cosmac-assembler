@@ -1,0 +1,30 @@
+
+BEEP_A  EQU 0AB12H
+MICE    EQU 8
+LARGE   equ  300
+	
+	ORG 1000H
+	
+START
+
+..8-bit
+	DC 7              .. 07
+	DC A.1(BEEP_A)    .. AB
+	DC A.0(BEEP_A)    .. 12
+	DC MICE           .. 08
+
+..16-bit
+	DC 0023H          .. 0023
+	DC BEEP_A         .. AB12
+	DC BEEP_A + 2     .. AB14
+	DC START          .. 1000
+	DC START + MICE   .. 1008
+
+
+	..DC MICE+255       .. 0107  Value too high warning
+	..DC 0FEH+MICE      .. 0106  Value too high warning
+
+..byte stream
+
+	DC 'Rats'         .. 52617473
+	

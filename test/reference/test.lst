@@ -1,0 +1,223 @@
+0000 ;              0001  	.. ASM test file
+0000 ;              0002  	..
+0000 ;              0003  	........ 1802 FIG-FORTH ................
+0000 ;              0004
+0000 ;              0005  BEEP	equ 0
+0000 ;              0006
+0000 ;              0007  CSTACK	EQU 9		.. forth stack pointer
+0000 ;              0008
+0000 ;              0009  USIZE	EQU 80H 	.. Number of bytes to copy
+0000 ;              0010  					... from origin to the user variable area
+0000 ;              0011
+0000 ;              0012  LIMITB	EQU 0FC00H
+0000 ;              0013
+0000 ;              0014  LAST   EQU  ZIP
+0000 ;              0015
+0000 ;              0016  FUN  EQU  ZAP-4
+0000 ;              0017
+0000 ;              0018  FORWARD  EQU FAN + 1
+0000 ;              0019
+0000 ;              0020  FAN  EQU  ZAP - 6
+0000 ;              0021
+0000 ;              0022  TRICKY   EQU  FAN
+0000 ;              0023
+0000 ;              0024  NOTADDR EQU LIMITB - 27
+0000 ;              0025
+0000 ;              0026
+0000 ;              0027  ..... These are bad lines, for error trap testing ..............
+0000 ;              0028  ..BAD1      EQU    NOPESTER
+0000 ;              0029  ..BAD2 EQU 123X
+0000 ;              0030  ..BAD3   EQU  FUN x 7
+0000 ;              0031  ..BAD4   EQU  FUN +
+0000 ;              0032  ..BAD5   EQU  0123456H + 2
+0000 ;              0033  ................................................................
+0000 ;              0034
+0000 ;              0035
+0000 ;              0036  	..SETUP ROUTINES
+0000 ;              0037
+0000 71;            0038  	DIS
+0001 00;            0039  	DC 00
+0002 ;              0040
+0002 F800B3;        0041  	LDI A.1(START); PHI R3
+0005 F810A3;        0042  	LDI A.0(START); PLO R3
+0008 ;              0043
+0008 ;              0044  	ORG 10H
+0010 ;              0045
+0010 C4;            0046  START	NOP		.. vector to the coldstart
+0011 C0011A;        0047  	LBR COLD	... code
+0014 ;              0048
+0014 C4;            0049  	NOP		.. vector to the warmstart
+0015 C0011C;        0050  	LBR WARM	... code
+0018 ;              0051
+0018 070A;          0052  	DC 070AH	..CPU number
+001A ;              0053
+001A 475818;        0054  WRMLP	LDA R7; STR R8; INC R8
+001D 2F8F;          0055  	DEC RF; GLO RF
+001F 3A1A;          0056  	BNZ WRMLP
+0021 ;              0057
+0021 ;              0058  	... Let's run FORTH
+0021 F801BC;        0059  	LDI A.1(NEXT); PHI RC
+0024 F820AC;        0060  ZOT	LDI A.0(NEXT); PLO RC
+0027 ;              0061
+0027 ;              0062  ZIP
+0027 ;              0063  ZAP
+0027 F843BA;        0064  	LDI A.0(ABORT+2); PHI RA
+002A ;              0065
+002A ;              0066
+002A 0040;          0067  RSTART	DC FILLER	..60 USE	(ROMVAR+0)
+002C 0042;          0068  	DC NOOP 	..64 'R/W	(etc...)
+002E 0040;          0069  	DC FILLER	..68
+0030 81A0;          0070  	DC 81A0H	..6A FHEAD
+0032 003B;          0071  	DC NOOP-7	..6C FDP
+0034 ;              0072
+0034 864F52494749;  0073  	DC 086H, 'ORIGI', 0CEH	.. ORIGIN
+003A CE;
+003B 003A;          0074  	DC BSCR-8
+003D 0111;          0075  ORGN	DC CONST
+003F 80;            0076  	DC USIZE   .. This should be a single byte!
+0040 ;              0077  FILLER
+0040 2F;            0078  	DEC RF
+0041 ;              0079
+0041 ;              0080  ABORT
+0041 12;            0081  	INC R2
+0042 ;              0082
+0042 ;              0083  BSCR
+0042 ;              0084  NOOP
+0042 1F;            0085  	INC RF
+0043 ;              0086
+0043 ;              0087  	..	ORG CONST + 0100H
+0043 ;              0088  	ORG START + 0100H
+0110 03;            0089  	DC 3
+0111 ;              0090
+0111 ;              0091  CONST
+0111 07;            0092  	DC 7
+0112 09;            0093  	DC CSTACK   .. This should be one byte or two? Should equates be one or two bytes?
+0113 0027;          0094  	DC ZAP
+0115 0023;          0095  	DC FUN
+0117 011E;          0096  	DC COLD+4H
+0119 7B;            0097  	SEQ
+011A ;              0098
+011A ;              0099  COLD
+011A 62;            0100  	OUT 2
+011B 70;            0101  	RET
+011C ;              0102
+011C ;              0103  WARM
+011C 6A;            0104  	INP 2
+011D C00010;        0105  	LBR START
+0120 ;              0106
+0120 ;              0107  NEXT
+0120 7B7A;          0108  	SEQ; REQ
+0122 0124;          0109  FIND	DC $+2
+0124 61626364;      0110  	DC 'abcd'
+0128 0128;          0111  	DC $
+012A ;              0112
+012A ;              0113  HEXLITERALS
+012A 04;            0114  	DC 4H
+012B 24;            0115  	DC 24H
+012C 24;            0116  	DC 024H
+012D 0123;          0117  	DC 123H
+012F 0123;          0118  	DC 0123H
+0131 1234;          0119  	DC 1234H
+0133 ;              0120
+0133 ;              0121
+0133 ;              0122   IF CSTACK	.. True
+0133 0C;            0123  	DC 12
+0134 F833;          0124  	LDI 033H
+0136 ;              0125   IF 0		.. False, nest 1
+0136 ;              0126  	DC 55	.. no code
+0136 ;              0127   ELSE
+0136 50;            0128  	DC 80
+0137 ;              0129   ENDI
+0137 3E;            0130  	DC 62
+0138 ;              0131   ELSE
+0138 ;              0132   IF 1		.. True, nest 1
+0138 ;              0133  	DC 56	.. no code
+0138 ;              0134   ELSE
+0138 ;              0135  	DC 40	.. no code
+0138 ;              0136   ENDI
+0138 ;              0137  	DC 13	.. no code
+0138 ;              0138   ENDI
+0138 ;              0139
+0138 ;              0140  EARLY
+0138 013A;          0141  	DC $ + 2
+013A 3038;          0142  	BR EARLY
+013C ;              0143
+013C ;              0144   IF BEEP		.. False
+013C ;              0145   IF 1		.. True, nest 1
+013C ;              0146  	DC 56	.. no code
+013C ;              0147   ELSE
+013C ;              0148  	DC 58	.. no code
+013C ;              0149   ENDI
+013C ;              0150  	DC 24	.. no code
+013C ;              0151  	LDI 099H	.. no code
+013C ;              0152  	BR COLD	.. no code
+013C ;              0153   ELSE
+013C 63;            0154  	DC 99
+013D 303F;          0155  	BR LATER
+013F ;              0156   ENDI
+013F ;              0157
+013F ;              0158  LATER
+013F 0141;          0159  	DC $ + 2
+0141 3022;          0160  	BR FIND
+0143 ;              0161
+0143 ;              0162  	END
+0143 ;              0163
+0143 ;              0164
+0143 ;              0165
+0143 ;              0166
+0143 ;              0167
+0143 ;              0168
+0143 ;              0169
+
+
+------------------- Symbols by Name ----------------------
+           ABORT : {            ABORT    80  label    0x0041  None }
+            BEEP : {             BEEP     5    equ    0x0000  0 }
+            BSCR : {             BSCR    83  label    0x0042  None }
+            COLD : {             COLD    99  label    0x011A  None }
+           CONST : {            CONST    91  label    0x0111  None }
+          CSTACK : {           CSTACK     7    equ    0x0009  9 }
+           EARLY : {            EARLY   140  label    0x0138  None }
+             FAN : {              FAN    20    equ    0x0021  ZAP - 6 }
+          FILLER : {           FILLER    77  label    0x0040  None }
+            FIND : {             FIND   109  label    0x0122  None }
+         FORWARD : {          FORWARD    18    equ    0x0022  FAN + 1 }
+             FUN : {              FUN    16    equ    0x0023  ZAP-4 }
+     HEXLITERALS : {      HEXLITERALS   113  label    0x012A  None }
+            LAST : {             LAST    14    equ    0x0027  ZIP }
+           LATER : {            LATER   158  label    0x013F  None }
+          LIMITB : {           LIMITB    12    equ    0xFC00  0FC00H }
+            NEXT : {             NEXT   107  label    0x0120  None }
+            NOOP : {             NOOP    84  label    0x0042  None }
+         NOTADDR : {          NOTADDR    24    equ    0xFBE5  LIMITB - 27 }
+            ORGN : {             ORGN    75  label    0x003D  None }
+          RSTART : {           RSTART    67  label    0x002A  None }
+           START : {            START    46  label    0x0010  None }
+          TRICKY : {           TRICKY    22    equ    0x0021  FAN }
+           USIZE : {            USIZE     9    equ    0x0080  80H }
+            WARM : {             WARM   103  label    0x011C  None }
+           WRMLP : {            WRMLP    54  label    0x001A  None }
+             ZAP : {              ZAP    63  label    0x0027  None }
+             ZIP : {              ZIP    62  label    0x0027  None }
+             ZOT : {              ZOT    60  label    0x0024  None }
+
+
+ABORT : 0041
+BSCR : 0042
+COLD : 011A
+CONST : 0111
+EARLY : 0138
+FILLER : 0040
+FIND : 0122
+HEXLITERALS : 012A
+LATER : 013F
+NEXT : 0120
+NOOP : 0042
+ORGN : 003D
+RSTART : 002A
+START : 0010
+WARM : 011C
+WRMLP : 001A
+ZAP : 0027
+ZIP : 0027
+ZOT : 0024
