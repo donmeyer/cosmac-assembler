@@ -1,6 +1,11 @@
-test.hex
-test.lst
 alt-test
-test_FIG
 1802 To-Do.txt
-test
+test/FIG_Forth.hex
+test/FIG_Forth.lst
+test/out.txt
+test/test.hex
+test/test.lst
+test/test_dc.hex
+test/test_dc.lst
+test/test_exp.hex
+test/test_exp.lst
