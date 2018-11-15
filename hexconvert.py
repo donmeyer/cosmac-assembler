@@ -57,7 +57,7 @@ dump_hex = None
 
 def process(src_filename,dest_filename):
     ftype, astart, aend, alen, chunks, hd  = epromimage.scanfile( src_filename )
-    print( "-- Source File --\nAddress Range: 0x%04X - 0x%04X   Size: %6d   Type: %s" % (astart, aend, alen, ftype))
+    print( "-- Source File --\nFull Span: 0x%04X - 0x%04X   Size: %6d   Type: %s" % (astart, aend, alen, ftype))
 
     if alen > size:
         print( "ERROR: The source file is too large to fit in the specified EPROM size of 0x%04X" % size )
@@ -65,7 +65,6 @@ def process(src_filename,dest_filename):
 
     eprom = EPROM(size)
     eprom.readfile( src_filename )
-    # eprom.readfile( "/Users/don/Downloads/FIG-FORTH v1.6.hex" )
 
     print( "\n-- EPROM Image --" )
     print(eprom)
@@ -89,15 +88,16 @@ def process(src_filename,dest_filename):
 def main( argv ):
     global size, dump_hex, output_format
 
-    usage = """"%prog [options] <input-file>
+    usage = """%prog [options] <input-file>
     Input file is hex data in one of the supported formats.
     If an output format is specified but no destination filename is given, the output
-    filename will be the input filename with the appropriate new extension."""
+    filename will be the input filename with the appropriate new extension.
+    If no output format is given, displays a summary of the file."""
 
     parser = optparse.OptionParser(usage=usage)
     
     parser.add_option( "-s", "--size",
-                        action="store", type="int", dest="size", default=0x10000,
+                        action="store", type="int", dest="size", default=0x2000,
                         help="Size of EPROM image. (default=8k)" )
     
     parser.add_option( "-f", "--format",
@@ -121,7 +121,7 @@ def main( argv ):
     output_format = options.output_format
     dump_hex = options.dump_hex
 
-    exts = { "hex" : "hex", "intel" : "ihex", "mot" : "s19", "bin" : "bin" }
+    exts = { "hex" : "hex", "intel" : "ihex", "mot" : "s19", "bin" : "bin" }  # Output formats
     if output_format != None and exts.get(output_format) == None:
         print( "*** Invalid output format '%s' specified" % output_format )
         sys.exit( -1 )
@@ -135,15 +135,15 @@ def main( argv ):
         sys.exit(1)
 
     if options.dest_name == None:
-        if options.output_format != None:
+        if output_format != None:
             # generate a dest name
-            ext = exts[options.output_format]
+            ext = exts[output_format]
             dest = "out.%s" % ext
         else:
             dest = None
     else:
         # Use given dest name. Must have an output format.
-        if options.output_format == None:
+        if output_format == None:
             print( "*** Destination name given but no output format specified!")
             sys.exit( -1 )
 
@@ -157,7 +157,8 @@ def main( argv ):
 if __name__ == '__main__':
     # sys.exit( main(["hexconvert", "epromimage-samples/bitload.hex", "-d"]) or 0 )
     # sys.exit( main(["hexconvert", "epromimage-samples/bitload.hex", "-d", "-f", "hex"]) or 0 )
-    sys.exit( main(["hexconvert", "/Users/don/Documents/Electronics/Cosmac 1802/EPROM Images/27C64/FIG-FORTH 1.0.s19", "-d", "-f", "hex"]) or 0 )
+    ##sys.exit( main(["hexconvert", "epromimage-test-out.ihex", "-d"]) or 0 )
+    # sys.exit( main(["hexconvert", "/Users/don/Documents/Electronics/Cosmac 1802/EPROM Images/27C64/FIG-FORTH 1.0.s19", "-d", "-f", "hex"]) or 0 )
     sys.exit( main(sys.argv) or 0 )
     
 
