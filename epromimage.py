@@ -390,6 +390,16 @@ def main( argv ):
     # for ch in eprom.chunks():
     #     print(ch)
 
+    print( "------------------------------------------------")
+    print("Two separate chunks in 512 byte EPROM image")
+    eprom = EPROM(512)
+    eprom.add_bytes( 0, b'ab' )
+    eprom.add_bytes( 0x20, b'xyz' )
+    print(eprom)
+    print( eprom.as_hexdump() )
+    eprom.write_file_as_intel_hex( "epromimage-test-out.ihex")
+    eprom.write_file_as_srecords( "epromimage-test-out.s19")
+
 
 
 if __name__ == '__main__':
