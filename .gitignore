@@ -9,3 +9,5 @@ test/test_dc.hex
 test/test_dc.lst
 test/test_exp.hex
 test/test_exp.lst
+epromimage-test-out.ihex
+epromimage-test-out.s19
