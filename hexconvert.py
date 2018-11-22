@@ -86,6 +86,7 @@ def process(src_filename,dest_filename):
 
 
 def main( argv ):
+    """This is the main function, and entry point for the application."""
     global size, dump_hex, output_format
 
     usage = """%prog [options] <input-file>
@@ -127,11 +128,13 @@ def main( argv ):
         sys.exit( -1 )
 
     # Get the filename
-    if len(args) > 1:
+    if len(args) == 2:
         filename = args[1]
+    elif len(args) > 2:
+        print( "Too many arguments.")
+        sys.exit(1)
     else:
-        print( "No file name given." )
-        print( main.__doc__ )
+        print( "No file name given. Use -h for usage." )
         sys.exit(1)
 
     if options.dest_name == None:
@@ -150,7 +153,6 @@ def main( argv ):
         dest = options.dest_name
 
     process( filename, dest )
-    
     
     
 
