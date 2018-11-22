@@ -56,7 +56,7 @@ dump_hex = None
 
 
 def process(src_filename,dest_filename):
-    ftype, astart, aend, alen, chunks, hd  = epromimage.scanfile( src_filename )
+    ftype, astart, aend, alen, __, __  = epromimage.scanfile( src_filename )
     print( "-- Source File --\nFull Span: 0x%04X - 0x%04X   Size: %6d   Type: %s" % (astart, aend, alen, ftype))
 
     if alen > size:

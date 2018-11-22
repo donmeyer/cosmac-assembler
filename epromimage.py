@@ -233,7 +233,7 @@ class EPROM:
 
 def _get_filetype( filename ):
     """Returns "srecord", "hex", "intelhex", "binary", or None"""
-    m = re.search(".*\\.(.+)$", filename , re.S)
+    # m = re.search(".*\\.(.+)$", filename , re.S)
     # if m:
         # ext = m.group(1).lower()
     ext = os.path.splitext(filename)[1]
@@ -369,8 +369,8 @@ def main( argv ):
     print( "------------------------------------------------")
     print("Idiot.hex (Intel) with an offset of 0x8000")
     eprom = EPROM(0x1000,0x8000)
-    ftype, astart, aend, alen, chunks, hd  = scanfile( "epromimage-samples/idiot.hex" )
-    print( "File type", ftype )
+    ftype, astart, aend, alen, chunks, __  = scanfile( "epromimage-samples/idiot.hex" )
+    print( "Scanfile  File type: %s  Astart: %d  Aend: %d  Len: %d  Chunk count: %d" % (ftype, astart, aend, alen, len(chunks)) )
     eprom.readfile( "epromimage-samples/idiot.hex" )
     print(eprom)
     print( eprom.as_hexdump() )

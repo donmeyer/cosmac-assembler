@@ -601,7 +601,7 @@ def parseRegister( arg ):
 		if passNumber == 1:
 			# symbols not resolved yet
 			return 0
-		v, ebytes = calcExpression( lineNumber, arg )
+		v, __ = calcExpression( lineNumber, arg )
 		# print( v, aflag, lflag, ebytes )
 		if v is not None:
 			if v < 0 or v > 15:
@@ -633,7 +633,7 @@ def assembleImmediate( opBase, arg, bytes ):
 		bytes.append( 0 )
 		return
 	
-	v, ebytes = calcExpression( lineNumber, arg )
+	v, __ = calcExpression( lineNumber, arg )
 	if v is None:
 		bailout( "Line: %d   Invalid argument (immediate) '%s'" % (lineNumber, arg) )
 	elif v > 0xFF:
@@ -652,7 +652,7 @@ def assembleShortBranch( opBase, arg, bytes ):
 		bytes.append( 0 )
 		return
 
-	v, ebytes = calcExpression( lineNumber, arg )	# FRAK
+	v, __ = calcExpression( lineNumber, arg )	# FRAK
 	if v is None:
 		bailout( "Line: %d   Invalid argument (short branch)" % lineNumber )
 	logDebug( "SB arg addr is 0x%04X" % ( address+1 ) )
@@ -673,7 +673,7 @@ def assembleLongBranch( opBase, arg, bytes ):
 		bytes.append( 0 )
 		return
 
-	v, ebytes = calcExpression( lineNumber, arg )	# FRAK
+	v, __ = calcExpression( lineNumber, arg )	# FRAK
 	if v == None:
 		bailout( "Line: %d   Invalid argument (long branch)" % lineNumber )
 	bytes.append( opBase )
@@ -885,7 +885,7 @@ def processEquate( label, body ):
 def processOrigin( body ):
 	global address
 	
-	v, ebytes = calcExpression( lineNumber, body )
+	v, __ = calcExpression( lineNumber, body )
 	if v is None:
 		bailout( "Line: %d  Unable to resolve origin address for '%s'" % ( lineNumber, body ) )
 	
@@ -913,7 +913,7 @@ def processIf( body ):
 	
 	emitNoCode()
 	
-	v, ebytes = calcExpression( lineNumber, body )
+	v, __ = calcExpression( lineNumber, body )
 	if v is None:
 		bailout( "Line: %d  Unable to resolve conditional expression for '%s'" % ( lineNumber, body ) )
 	c = ConditionalBlock( okToEmitCode, v != 0 )
@@ -1239,7 +1239,7 @@ def assembleFile( src ):
 def process( filename ):
 	global listingDest, hexDest
 	
-	rootname, ext = os.path.splitext( filename )
+	rootname, __ = os.path.splitext( filename )
 	
 	if displayFlag == True:
 		listingDest = sys.stdout
