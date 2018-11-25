@@ -53,5 +53,18 @@ echo Testing FIG listing
 cmp FIG_Forth.lst reference/FIG_Forth.lst
 
 
+echo ========================================
+echo Compiling
+../cosmacasm.py --quiet offset.src
+
+echo ----------------------------------------
+echo Testing Offset hex
+cmp offset.hex reference/offset.hex
+
+echo ----------------------------------------
+echo Testing Offset listing
+cmp offset.lst reference/offset.lst
+
+
 echo
 echo Tests completed. If no warnings or errors above, then we passed!

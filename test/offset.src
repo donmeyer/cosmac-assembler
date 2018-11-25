@@ -1,0 +1,16 @@
+.. offset.src
+..
+..
+
+START
+    DC 88
+    SEX 2
+    LBR BASE
+
+
+    ORG 0100H
+
+BASE
+    DC 77
+    DC 22
+    SEX 1
