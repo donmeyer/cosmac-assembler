@@ -61,11 +61,11 @@ symbols = {}
 
 BYTES_PER_LINE = 6
 
-pgmImage = None
+pgmImage = None		# Byte array (bytearray) storing the program image
 
 conditionalStack = []	# stack of ConditionalBlock objects
 
-okToEmitCode = True		# This is set by the if/else/endi statements as needed.
+okToEmitCode = True		# This is set by the if/else/endif statements as needed.
 
 
 #
@@ -1221,7 +1221,7 @@ def assembleFile( src ):
 		
 	# Set up a byte array to hold the assembled program image.
 	pgmImage = bytearray()
-	for i in range(address):
+	for _ in range(address):
 		pgmImage.append( 0xFF )	# pad byte	
 	
 	resolveSymbols()
