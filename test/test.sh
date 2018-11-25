@@ -13,7 +13,7 @@ echo Testing test listing
 cmp test.lst reference/test.lst
 
 
-echo ----------------------------------------
+echo ========================================
 echo Compiling
 ../cosmacasm.py  --quiet test_dc.src
 
@@ -26,7 +26,7 @@ echo Testing test_dc listing
 cmp test_dc.lst reference/test_dc.lst
 
 
-echo ----------------------------------------
+echo ========================================
 echo Compiling
 ../cosmacasm.py  --quiet test_exp.src
 
@@ -40,7 +40,7 @@ cmp test_exp.lst reference/test_exp.lst
 
 
 
-echo ----------------------------------------
+echo ========================================
 echo Compiling
 ../cosmacasm.py --quiet FIG_Forth.src
 
@@ -54,4 +54,4 @@ cmp FIG_Forth.lst reference/FIG_Forth.lst
 
 
 echo
-echo Tests completed
+echo Tests completed. If no warnings or errors above, then we passed!
