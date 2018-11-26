@@ -9,7 +9,8 @@ test/test_dc.hex
 test/test_dc.lst
 test/test_exp.hex
 test/test_exp.lst
+test/offset.hex
+test/offset.lst
 epromimage-test-out.ihex
 epromimage-test-out.s19
-offset.hex
-offset.lst
+out.hex
