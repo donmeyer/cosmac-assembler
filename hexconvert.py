@@ -48,7 +48,9 @@ import re
 import string
 
 import epromimage
-from epromimage import EPROM
+
+
+VERSION="1.0"
 
 output_format = None
 size = None
@@ -63,7 +65,7 @@ def process(src_filename,dest_filename):
         print( "ERROR: The source file is too large to fit in the specified EPROM size of 0x%04X" % size )
         sys.exit( -1 )
 
-    eprom = EPROM(size)
+    eprom = epromimage.EPROM(size)
     eprom.readfile( src_filename )
 
     print( "\n-- EPROM Image --" )
@@ -99,6 +101,8 @@ def main( argv=None ):
 
     parser = argparse.ArgumentParser(description=description)
     
+    parser.add_argument('--version', action='version', version=VERSION)
+
     parser.add_argument( "-s", "--size",
                         action="store", type=int, default=0x2000,
                         help="Size of EPROM image. (default=8,192)" )
