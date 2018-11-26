@@ -43,7 +43,7 @@
 
 import os, sys, csv, datetime, time
 import codecs
-import optparse
+import argparse
 import re
 import string
 
@@ -85,57 +85,57 @@ def process(src_filename,dest_filename):
 
 
 
-def main( argv ):
+def main( argv=None ):
     """This is the main function, and entry point for the application."""
     global size, dump_hex, output_format
 
-    usage = """%prog [options] <input-file>
-    Input file is hex data in one of the supported formats.
+    description = """Input file is hex data in one of the supported formats.
     If an output format is specified but no destination filename is given, the output
     filename will be the input filename with the appropriate new extension.
     If no output format is given, displays a summary of the file."""
 
-    parser = optparse.OptionParser(usage=usage)
+    exts = {"hex": "hex", "intel": "ihex",
+            "mot": "s19", "bin": "bin"}  # Output formats
+
+    parser = argparse.ArgumentParser(description=description)
     
-    parser.add_option( "-s", "--size",
-                        action="store", type="int", dest="size", default=0x2000,
-                        help="Size of EPROM image. (default=8k)" )
+    parser.add_argument( "-s", "--size",
+                        action="store", type=int, default=0x2000,
+                        help="Size of EPROM image. (default=8,192)" )
     
-    parser.add_option( "-f", "--format",
-                        action="store", type="string", dest="output_format", default=None,
+    parser.add_argument( "-f", "--format",
+                        action="store", dest="output_format",
+                        choices=exts.keys(),
+                        metavar="FORMAT",
                         help="Format of output file. 'hex', 'intel', 'mot', 'bin'" )
     
-    parser.add_option( "-d", "--dump",
-                        action="store_true", dest="dump_hex", default=False,
+    parser.add_argument( "-d", "--dump",
+                        action="store_true", dest="dump_hex",
                         help="Hex Dump of the file" )
 
-    parser.add_option( "-o", "--destination",
-                        action="store", type="string", dest="dest_name", default=None,
+    parser.add_argument( "-o", "--destination",
+                        action="store", dest="dest_name",
+                        metavar="PATH",
                         help="Name of output file (optional)" )
-    
-    (options, args) = parser.parse_args(argv)
-    
-    # logDebug( options )
-    # logDebug( args )
 
+    parser.add_argument("source", nargs="+",
+                        type=argparse.FileType('r'),
+                        metavar="INPUT-FILE")
+    
+    options = parser.parse_args(argv)
+    
+    # print( options )
+    # logDebug( args )
+    # print(options.source)
+
+    # Set the global vars that the rest of the program will need.
     size = options.size
     output_format = options.output_format
     dump_hex = options.dump_hex
 
-    exts = { "hex" : "hex", "intel" : "ihex", "mot" : "s19", "bin" : "bin" }  # Output formats
-    if output_format != None and exts.get(output_format) == None:
-        print( "*** Invalid output format '%s' specified" % output_format )
-        sys.exit( -1 )
-
     # Get the filename
-    if len(args) == 2:
-        filename = args[1]
-    elif len(args) > 2:
-        print( "Too many arguments.")
-        sys.exit(1)
-    else:
-        print( "No file name given. Use -h for usage." )
-        sys.exit(1)
+    filename = options.source[0].name
+    options.source[0].close()
 
     if options.dest_name == None:
         if output_format != None:
@@ -160,7 +160,7 @@ if __name__ == '__main__':
     # sys.exit( main(["hexconvert", "epromimage-samples/bitload.hex", "-d"]) or 0 )
     # sys.exit( main(["hexconvert", "epromimage-samples/bitload.hex", "-d", "-f", "hex"]) or 0 )
     ##sys.exit( main(["hexconvert", "epromimage-test-out.ihex", "-d"]) or 0 )
-    # sys.exit( main(["hexconvert", "/Users/don/Documents/Electronics/Cosmac 1802/EPROM Images/27C64/FIG-FORTH 1.0.s19", "-d", "-f", "hex"]) or 0 )
-    sys.exit( main(sys.argv) or 0 )
+    # sys.exit( main(["/Users/don/Documents/Electronics/Cosmac 1802/EPROM Images/27C64/FIG-FORTH 1.0.s19", "-d", "-f", "hex"]) or 0 )
+    sys.exit( main() or 0 )
     
 
