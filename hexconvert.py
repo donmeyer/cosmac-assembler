@@ -38,56 +38,52 @@
 #   With no offset applied, the output file would start with 8k of 0xFF bytes followed by
 #   the first byte from the first input record.
 #
-#-------------------------------------------
+# -------------------------------------------
 #
 
-import os, sys, csv, datetime, time
-import codecs
+import sys
 import argparse
-import re
-import string
 
 import epromimage
 
 
-VERSION="1.0"
+VERSION = "1.0"
 
 output_format = None
 size = None
 dump_hex = None
 
 
-def process(src_filename,dest_filename):
-    ftype, astart, aend, alen, __, __  = epromimage.scanfile( src_filename )
-    print( "-- Source File --\nFull Span: 0x%04X - 0x%04X   Size: %6d   Type: %s" % (astart, aend, alen, ftype))
+def process(src_filename, dest_filename):
+    ftype, astart, aend, alen, __, __ = epromimage.scanfile(src_filename)
+    print("-- Source File --\nFull Span: 0x%04X - 0x%04X   Size: %6d   Type: %s" % (astart, aend, alen, ftype))
 
     if alen > size:
-        print( "ERROR: The source file is too large to fit in the specified EPROM size of 0x%04X" % size )
-        sys.exit( -1 )
+        print("ERROR: The source file is too large to fit in the specified EPROM size of 0x%04X" % size)
+        sys.exit(-1)
 
     eprom = epromimage.EPROM(size)
-    eprom.readfile( src_filename )
+    eprom.readfile(src_filename)
 
-    print( "\n-- EPROM Image --" )
+    print("\n-- EPROM Image --")
     print(eprom)
 
     if dump_hex:
         print()
-        print( eprom.as_hexdump() )
+        print(eprom.as_hexdump())
 
     # Write out the file in a new format
     if output_format == "hex":
-        eprom.write_file_as_raw_hex( dest_filename )
+        eprom.write_file_as_raw_hex(dest_filename)
     elif output_format == "intel":
-        eprom.write_file_as_intel_hex( dest_filename )
+        eprom.write_file_as_intel_hex(dest_filename)
     elif output_format == "mot":
-        eprom.write_file_as_srecords( dest_filename )
+        eprom.write_file_as_srecords(dest_filename)
     elif output_format == "bin":
-        eprom.write_file_as_binary( dest_filename )
+        eprom.write_file_as_binary(dest_filename)
 
 
-
-def main( argv=None ):
+def main(argv=None):
     """This is the main function, and entry point for the application."""
     global size, dump_hex, output_format
 
@@ -100,34 +96,34 @@ def main( argv=None ):
             "mot": "s19", "bin": "bin"}  # Output formats
 
     parser = argparse.ArgumentParser(description=description)
-    
+
     parser.add_argument('--version', action='version', version=VERSION)
 
-    parser.add_argument( "-s", "--size",
+    parser.add_argument("-s", "--size",
                         action="store", type=int, default=0x2000,
-                        help="Size of EPROM image. (default=8,192)" )
-    
-    parser.add_argument( "-f", "--format",
+                        help="Size of EPROM image. (default=8,192)")
+
+    parser.add_argument("-f", "--format",
                         action="store", dest="output_format",
                         choices=exts.keys(),
                         metavar="FORMAT",
-                        help="Format of output file. 'hex', 'intel', 'mot', 'bin'" )
-    
-    parser.add_argument( "-d", "--dump",
-                        action="store_true", dest="dump_hex",
-                        help="Hex Dump of the file" )
+                        help="Format of output file. 'hex', 'intel', 'mot', 'bin'")
 
-    parser.add_argument( "-o", "--destination",
+    parser.add_argument("-d", "--dump",
+                        action="store_true", dest="dump_hex",
+                        help="Hex Dump of the file")
+
+    parser.add_argument("-o", "--destination",
                         action="store", dest="dest_name",
                         metavar="PATH",
-                        help="Name of output file (optional)" )
+                        help="Name of output file (optional)")
 
     parser.add_argument("source", nargs="+",
                         type=argparse.FileType('r'),
                         metavar="INPUT-FILE")
-    
+
     options = parser.parse_args(argv)
-    
+
     # print( options )
     # logDebug( args )
     # print(options.source)
@@ -141,8 +137,8 @@ def main( argv=None ):
     filename = options.source[0].name
     options.source[0].close()
 
-    if options.dest_name == None:
-        if output_format != None:
+    if options.dest_name is None:
+        if output_format is not None:
             # generate a dest name
             ext = exts[output_format]
             dest = "out.%s" % ext
@@ -150,21 +146,18 @@ def main( argv=None ):
             dest = None
     else:
         # Use given dest name. Must have an output format.
-        if output_format == None:
-            print( "*** Destination name given but no output format specified!")
-            sys.exit( -1 )
+        if output_format is None:
+            print("*** Destination name given but no output format specified!")
+            sys.exit(-1)
 
         dest = options.dest_name
 
-    process( filename, dest )
-    
-    
+    process(filename, dest)
+
 
 if __name__ == '__main__':
     # sys.exit( main(["hexconvert", "epromimage-samples/bitload.hex", "-d"]) or 0 )
     # sys.exit( main(["hexconvert", "epromimage-samples/bitload.hex", "-d", "-f", "hex"]) or 0 )
-    ##sys.exit( main(["hexconvert", "epromimage-test-out.ihex", "-d"]) or 0 )
+    # sys.exit( main(["hexconvert", "epromimage-test-out.ihex", "-d"]) or 0 )
     # sys.exit( main(["/Users/don/Documents/Electronics/Cosmac 1802/EPROM Images/27C64/FIG-FORTH 1.0.s19", "-d", "-f", "hex"]) or 0 )
-    sys.exit( main() or 0 )
-    
-
+    sys.exit(main() or 0)
