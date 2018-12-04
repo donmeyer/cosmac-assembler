@@ -51,7 +51,7 @@ VERSION = "1.0"
 
 output_format = None
 size = None
-dump_hex = None
+dump_hex = False
 
 
 def process(src_filename, dest_filename):
@@ -84,7 +84,9 @@ def process(src_filename, dest_filename):
 
 
 def main(argv=None):
-    """This is the main function, and entry point for the application."""
+    """This is the main function, and entry point for the application.
+
+    The argv argument can be passed in if desired, for unit-test purposes."""
     global size, dump_hex, output_format
 
     description = """Input file is hex data in one of the supported formats.
