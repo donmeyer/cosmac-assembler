@@ -52,19 +52,30 @@ VERSION = "1.0"
 output_format = None
 size = None
 dump_hex = False
+eprom = None
 
 
-def process(src_filename, dest_filename):
-    ftype, astart, aend, alen, __, __ = epromimage.scanfile(src_filename)
-    print("-- Source File --\nFull Span: 0x%04X - 0x%04X   Size: %6d   Type: %s" % (astart, aend, alen, ftype))
+def process(src_file):
+    """ Read a source file in, and add it to the EPROM image.
+    """
+    # Ideally, we would pass the filehande to the various methods that scan
+    # and read the source file, but due to their APIs we just get the pathname
+    # and use that.
+    filename = src_file.name
+    src_file.close()
+    ftype, astart, aend, alen, __, __ = epromimage.scanfile(filename)
+    print("-- Source File: %s --\nFull Span: 0x%04X - 0x%04X   Size: %6d   Type: %s" % (filename, astart, aend, alen, ftype))
 
     if alen > size:
         print("ERROR: The source file is too large to fit in the specified EPROM size of 0x%04X" % size)
         sys.exit(-1)
 
-    eprom = epromimage.EPROM(size)
-    eprom.readfile(src_filename)
+    eprom.readfile(filename)
 
+
+def save(dest_filename):
+    """ Display information about the EPROM image and then optionally write it to the destination.
+    """
     print("\n-- EPROM Image --")
     print(eprom)
 
@@ -87,7 +98,7 @@ def main(argv=None):
     """This is the main function, and entry point for the application.
 
     The argv argument can be passed in if desired, for unit-test purposes."""
-    global size, dump_hex, output_format
+    global size, dump_hex, output_format, eprom
 
     description = """Input file is hex data in one of the supported formats.
     If an output format is specified but no destination filename is given, the output
@@ -135,10 +146,6 @@ def main(argv=None):
     output_format = options.output_format
     dump_hex = options.dump_hex
 
-    # Get the filename
-    filename = options.source[0].name
-    options.source[0].close()
-
     if options.dest_name is None:
         if output_format is not None:
             # generate a dest name
@@ -154,7 +161,15 @@ def main(argv=None):
 
         dest = options.dest_name
 
-    process(filename, dest)
+    eprom = epromimage.EPROM(size)
+
+    try:
+        for fh in options.source:
+            process(fh)
+        save(dest)
+    except epromimage.Error as error:
+        print("Error:", error)
+        sys.exit(-1)
 
 
 if __name__ == '__main__':
@@ -162,4 +177,12 @@ if __name__ == '__main__':
     # sys.exit( main(["hexconvert", "epromimage-samples/bitload.hex", "-d", "-f", "hex"]) or 0 )
     # sys.exit( main(["hexconvert", "epromimage-test-out.ihex", "-d"]) or 0 )
     # sys.exit( main(["/Users/don/Documents/Electronics/Cosmac 1802/EPROM Images/27C64/FIG-FORTH 1.0.s19", "-d", "-f", "hex"]) or 0 )
-    sys.exit(main() or 0)
+    # sys.exit(main(["/Users/don/Documents/Electronics/Cosmac 1802/EPROM Images/27C64/FIG-FORTH 1.0.s19", "-f", "hex"]) or 0)
+
+    main(["/Users/don/Documents/Electronics/Cosmac 1802/EPROM Images/27C32/FIG 1.0 Low.ihex",
+          "/Users/don/Documents/Electronics/Cosmac 1802/EPROM Images/27C32/FIG 1.0 High.ihex",
+          "-f", "hex"])
+
+    # main(["/Users/don/Documents/Electronics/Cosmac 1802/EPROM Images/27C32/FIG 1.0 Low.ihex", "-d"])
+    # main(["/Users/don/Documents/Electronics/Cosmac 1802/EPROM Images/27C32/FIG 1.0 High.ihex", "-d"])
+    # sys.exit(main() or 0)
