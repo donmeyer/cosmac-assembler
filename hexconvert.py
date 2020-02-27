@@ -47,7 +47,7 @@ import argparse
 import epromimage
 
 
-VERSION = "1.0"
+VERSION = "1.1"
 
 output_format = None
 size = None
@@ -55,10 +55,10 @@ dump_hex = False
 eprom = None
 
 
-def process(src_file):
+def process(src_file, addr=0):
     """ Read a source file in, and add it to the EPROM image.
     """
-    # Ideally, we would pass the filehande to the various methods that scan
+    # Ideally, we would pass the filehandle to the various methods that scan
     # and read the source file, but due to their APIs we just get the pathname
     # and use that.
     filename = src_file.name
@@ -66,11 +66,16 @@ def process(src_file):
     ftype, astart, aend, alen, __, __ = epromimage.scanfile(filename)
     print("-- Source File: %s --\nFull Span: 0x%04X - 0x%04X   Size: %6d   Type: %s" % (filename, astart, aend, alen, ftype))
 
+    if addr != 0:
+        if ftype != "binary" and ftype != "hex":
+            print("ERROR: Cannot give an import address for file types other than binary or raw-hex")
+            sys.exit(-1)
+
     if alen > size:
         print("ERROR: The source file is too large to fit in the specified EPROM size of 0x%04X" % size)
         sys.exit(-1)
 
-    eprom.readfile(filename)
+    eprom.readfile(filename, addr)
 
 
 def save(dest_filename):
@@ -121,6 +126,10 @@ def main(argv=None):
                         action="store", type=auto_int, default=0x2000,
                         help="Size of EPROM image. (default=8,192)")
 
+    parser.add_argument("-a", "--addr",
+                        action="store", type=auto_int, default=0,
+                        help="Start address for binary or raw-hex input files. (default=0)")
+
     parser.add_argument("-f", "--format",
                         action="store", dest="output_format",
                         choices=exts.keys(),
@@ -170,7 +179,7 @@ def main(argv=None):
 
     try:
         for fh in options.source:
-            process(fh)
+            process(fh, options.addr)
         save(dest)
     except epromimage.Error as error:
         print("Error:", error)
@@ -184,10 +193,11 @@ if __name__ == '__main__':
     # sys.exit( main(["/Users/don/Documents/Electronics/Cosmac 1802/EPROM Images/27C64/FIG-FORTH 1.0.s19", "-d", "-f", "hex"]) or 0 )
     # sys.exit(main(["/Users/don/Documents/Electronics/Cosmac 1802/EPROM Images/27C64/FIG-FORTH 1.0.s19", "-f", "hex"]) or 0)
 
-    main(["/Users/don/Documents/Electronics/Cosmac 1802/EPROM Images/27C32/FIG 1.0 Low.ihex",
-          "/Users/don/Documents/Electronics/Cosmac 1802/EPROM Images/27C32/FIG 1.0 High.ihex",
-          "-f", "hex"])
+    # The latest unit test
+    # main(["/Users/don/Documents/Electronics/Cosmac 1802/EPROM Images/27C32/FIG 1.0 Low.ihex",
+    #      "/Users/don/Documents/Electronics/Cosmac 1802/EPROM Images/27C32/FIG 1.0 High.ihex",
+    #      "-f", "hex"])
 
     # main(["/Users/don/Documents/Electronics/Cosmac 1802/EPROM Images/27C32/FIG 1.0 Low.ihex", "-d"])
     # main(["/Users/don/Documents/Electronics/Cosmac 1802/EPROM Images/27C32/FIG 1.0 High.ihex", "-d"])
-    # sys.exit(main() or 0)
+    sys.exit(main() or 0)
