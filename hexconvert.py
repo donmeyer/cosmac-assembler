@@ -94,6 +94,11 @@ def save(dest_filename):
         eprom.write_file_as_binary(dest_filename)
 
 
+def auto_int(x):
+    """Simple helper to allow parsing arguments in bases other than 10."""
+    return int(x, 0)
+
+
 def main(argv=None):
     """This is the main function, and entry point for the application.
 
@@ -113,7 +118,7 @@ def main(argv=None):
     parser.add_argument('--version', action='version', version=VERSION)
 
     parser.add_argument("-s", "--size",
-                        action="store", type=int, default=0x2000,
+                        action="store", type=auto_int, default=0x2000,
                         help="Size of EPROM image. (default=8,192)")
 
     parser.add_argument("-f", "--format",
