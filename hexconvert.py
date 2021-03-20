@@ -43,6 +43,7 @@
 
 import sys
 import argparse
+import os
 
 import epromimage
 
@@ -97,6 +98,8 @@ def save(dest_filename):
         eprom.write_file_as_srecords(dest_filename)
     elif output_format == "bin":
         eprom.write_file_as_binary(dest_filename)
+    elif output_format == "src":
+        eprom.write_file_as_c_src(dest_filename)
 
 
 def auto_int(x):
@@ -116,7 +119,7 @@ def main(argv=None):
     If no output format is given, displays a summary of the file."""
 
     exts = {"hex": "hex", "intel": "ihex",
-            "mot": "s19", "bin": "bin"}  # Output formats
+            "mot": "s19", "bin": "bin", "src": "c" }  # Output formats
 
     parser = argparse.ArgumentParser(description=description)
 
@@ -134,7 +137,7 @@ def main(argv=None):
                         action="store", dest="output_format",
                         choices=exts.keys(),
                         metavar="FORMAT",
-                        help="Format of output file. 'hex', 'intel', 'mot', 'bin'")
+                        help="Format of output file. 'hex', 'intel', 'mot', 'bin', 'src'")
 
     parser.add_argument("-d", "--dump",
                         action="store_true", dest="dump_hex",
@@ -164,7 +167,14 @@ def main(argv=None):
         if output_format is not None:
             # generate a dest name
             ext = exts[output_format]
-            dest = "out.%s" % ext
+
+            if len(options.source) == 1:
+                # Single inout file, use that with the new extension.
+                root, _ = os.path.splitext(options.source[0].name)
+                dest = "%s.%s" % (root, ext)
+            else:
+                # Multiple input files, use generic destination name.
+                dest = "out.%s" % ext
         else:
             dest = None
     else:
