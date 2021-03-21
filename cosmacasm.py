@@ -844,6 +844,11 @@ def assembleChunk( chunk ):
 #
 def emitCode( startAddr, bytes ):
 	global pgmImage
+
+	# Add bytes to the program image
+	end = startAddr + len(bytes)
+	pgmImage[startAddr:end] = bytes
+
 	hexStr = ""
 	overflow = False
 	for byte in bytes:
@@ -866,11 +871,6 @@ def emitCode( startAddr, bytes ):
 			emitListing( "%04X %-14s %04d  %s" % ( startAddr, hexStr, lineNumber, curLine ) )
 		else:
 			emitListing( "%04X %s" % ( startAddr, hexStr ) )
-				
-	# Add bytes to the program image
-	end = startAddr + len(bytes)
-	pgmImage[startAddr:end] = bytes
-	
 
 
 def processEquate( label, body ):
