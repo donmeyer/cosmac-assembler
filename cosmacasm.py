@@ -1073,7 +1073,9 @@ def processLine( line ):
 		if m:
 			# Line is a DC directive
 			body = m.group(1)
-			startAddr, bytes = assembleDC( body )
+			addr, bytes = assembleDC( body )
+			if startAddr == None:
+				startAddr = addr
 			lineBytes.extend( bytes )
 		else:
 			# Looks like we have a normal statment, opcode style!
