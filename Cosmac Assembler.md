@@ -28,16 +28,23 @@ By default the hex file is in a raw hex format.
 ## Assembler Syntax
 
 
-### Comments
+### Alternate Syntax
 
+#### Comments
+
+For comments, it becomes ; versus ..
 Comments are indicated by two consecutive periods.
 
     .. I am a comment
-
 
 In the alternate syntax mode, comments are begun with a semicolon.
 
     ; Alternate comment!
 
+#### Constants
 
+DC becomes DB.
 
+#### Register Bytes
+
+A.0 and A.1 become LOW and HIGH
