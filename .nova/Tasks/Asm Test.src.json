@@ -1,0 +1,14 @@
+{
+  "extension" : {
+    "identifier" : "panic.Python",
+    "name" : "Python"
+  },
+  "extensionTemplate" : "pythonDebug",
+  "extensionValues" : {
+    "python.debug.customArgs" : [
+      "test\/test.src",
+      ""
+    ],
+    "python.debug.script" : "cosmacasm.py"
+  }
+}

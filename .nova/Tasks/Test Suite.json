@@ -1,0 +1,9 @@
+{
+  "actions" : {
+    "run" : {
+      "enabled" : true,
+      "script" : "#!\/bin\/sh\n\ncd test\n\necho Compiling\n..\/cosmacasm.py  --quiet test.src\n\necho ----------------------------------------\necho Testing test hex\ncmp --verbose test.hex reference\/test.hex\n\necho ----------------------------------------\necho Testing test listing\ncmp test.lst reference\/test.lst\n\n\necho ========================================\necho Compiling\n..\/cosmacasm.py  --quiet test_dc.src\n\necho ----------------------------------------\necho Testing test_dc hex\ncmp --verbose test_dc.hex reference\/test_dc.hex\n\necho ----------------------------------------\necho Testing test_dc listing\ncmp test_dc.lst reference\/test_dc.lst\n\n\necho ========================================\necho Compiling\n..\/cosmacasm.py  --quiet test_exp.src\n\necho ----------------------------------------\necho Testing test_exp hex\ncmp --verbose test_exp.hex reference\/test_exp.hex\n\necho ----------------------------------------\necho Testing test_exp listing\ncmp test_exp.lst reference\/test_exp.lst\n\n\n\necho ========================================\necho Compiling\n..\/cosmacasm.py --quiet FIG_Forth.src\n\necho ----------------------------------------\necho Testing FIG hex\ncmp FIG_Forth.hex reference\/FIG_Forth.hex\n\necho ----------------------------------------\necho Testing FIG listing\ncmp FIG_Forth.lst reference\/FIG_Forth.lst\n\n\necho ========================================\necho Compiling\n..\/cosmacasm.py --quiet offset.src\n\necho ----------------------------------------\necho Testing Offset hex\ncmp offset.hex reference\/offset.hex\n\necho ----------------------------------------\necho Testing Offset listing\ncmp offset.lst reference\/offset.lst\n\n\necho\necho Tests completed. If no warnings or errors above, then we passed!\n"
+    }
+  },
+  "openLogOnRun" : "start"
+}
