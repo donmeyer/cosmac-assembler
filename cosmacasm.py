@@ -90,6 +90,7 @@ class Symbol:
     name --
     type - "label", "equ"
     """
+
     def __init__(self, name, body=None, value=None):
         self.lineNumber = lineNumber
         self.name = name
@@ -132,6 +133,7 @@ class ConditionalBlock:
     parentState - The state of the enclosing block. If false, this objects state is never set to true.
     state - boolean indicating whether the IF condition was true or not.
     """
+
     def __init__(self, parentState, state):
         self.parentState = parentState
         if parentState is True:
@@ -177,7 +179,7 @@ def addSymbol(sym):
         bailout("Line: %d   Duplicate symbol '%s'.  Original definition at line %d" % (lineNumber, sym.name, daddr))
     symbols[sym.name] = sym
     sym.resolve()   # We try here because some can be resolved, but this may fail, which is fine.
-                    # We do another resolve step after the first pass completes.
+    # We do another resolve step after the first pass completes.
 
 
 #
@@ -323,33 +325,32 @@ def obtainTokenValue(token):
 
         while len(ss) > 0:
             d = ss[:2]
-            ebytes.append( int(d,16) )
+            ebytes.append(int(d, 16))
             ss = ss[2:]
 
-        return ( int(s,16), ebytes )
+        return (int(s, 16), ebytes)
 
     # Look for a decimal value.
-    m = re.match( r'([0-9]+)D?$', token )
+    m = re.match(r'([0-9]+)D?$', token)
     if m:
         # Always return just one byte because no real way to know how many bytes intended so at least be predictable?
         s = m.group(1)
-        logDebug( "Obtained dec value for '%s'" % s )
-        v = int(s,10)
+        logDebug("Obtained dec value for '%s'" % s)
+        v = int(s, 10)
         bc = 1
         if v > 0xFF:
             bc = 2
-        return ( v, buildBytes(v,bc) )
+        return (v, buildBytes(v, bc))
 
     # Is it a Symbol?
     if token in symbols:
-        logDebug( "Obtained symbol value for token '%s'" % token )
+        logDebug("Obtained symbol value for token '%s'" % token)
         sym = symbols[token]
-        return ( sym.value, sym.ebytes )
+        return (sym.value, sym.ebytes)
 
     # If we get here, we failed to
-    logDebug( "Failed to obtain value for '%s'" % token )
-    return ( None, None )
-
+    logDebug("Failed to obtain value for '%s'" % token)
+    return (None, None)
 
 
 #
@@ -374,39 +375,37 @@ def obtainTokenValue(token):
 #    MICE + HIGH START
 #    MICE + HIGH START + 4
 #
-def calcExpression( lineNumber, body ):
-    logDebug( "Calc expression '%s'" % body )
+def calcExpression(lineNumber, body):
+    logDebug("Calc expression '%s'" % body)
     parser = Parser.Parser(body)
-    return evaluate( lineNumber, parser, 1 )
-
+    return evaluate(lineNumber, parser, 1)
 
 
 #
 #
 #
-def evaluate( lineNumber, parser, maxBytes ):
-    logDebug( "+++ Evaluate '%s'" % parser.line )
+def evaluate(lineNumber, parser, maxBytes):
+    logDebug("+++ Evaluate '%s'" % parser.line)
 
     accumValue = None
     ebytes = None
 
     while True:
-        v, ebytes = evalArg( lineNumber, parser, accumValue, maxBytes )
+        v, ebytes = evalArg(lineNumber, parser, accumValue, maxBytes)
         if v is not None:
-            logDebug( "arg evaluated to %d - %s" % (v,ebytes) )
+            logDebug("arg evaluated to %d - %s" % (v, ebytes))
             accumValue = v
-            maxBytes = max(maxBytes,len(ebytes))
+            maxBytes = max(maxBytes, len(ebytes))
         else:
             break
 
     # recalculate the bytes
     if accumValue is not None:
-        logDebug( "Recalculate the byte array. Max bytes %d" % maxBytes )
-        ebytes = buildBytes( accumValue, maxBytes )
+        logDebug("Recalculate the byte array. Max bytes %d" % maxBytes)
+        ebytes = buildBytes(accumValue, maxBytes)
 
-    logDebug( "--- Evaluate returning %s : %s" % (accumValue,ebytes) )
-    return ( accumValue, ebytes )
-
+    logDebug("--- Evaluate returning %s : %s" % (accumValue, ebytes))
+    return (accumValue, ebytes)
 
 
 # evalArg - Parse value, parenthasized expression, ninary op, or unary op
@@ -423,23 +422,23 @@ def evaluate( lineNumber, parser, maxBytes ):
 #             unary - parseValue
 #             parens - error
 
-def evalArg( lineNumber, parser, accumValue, maxBytes ):
+def evalArg(lineNumber, parser, accumValue, maxBytes):
     s, parenthesized = parser.nextItem()
-    logDebug( "Parsed '%s'" % s )
+    logDebug("Parsed '%s'" % s)
     if s is None:
         # Finished
-        return( None, None )
+        return(None, None)
 
     if parenthesized:
         if accumValue is None:
             # Needs to be broken down further, recurse with the paren contents
             subParser = Parser.Parser(s)
-            logDebug( "calling evaluate for parenthesized expression '%s'" % s)
-            value, ebytes = evaluate(lineNumber,subParser,maxBytes)
+            logDebug("calling evaluate for parenthesized expression '%s'" % s)
+            value, ebytes = evaluate(lineNumber, subParser, maxBytes)
             if ebytes is not None:
-                maxBytes = max(maxBytes,len(ebytes))
+                maxBytes = max(maxBytes, len(ebytes))
         else:
-            bailout( "Line: %d   Expected operator but found parenthesized expression '%s'" % ( lineNumber, s ) )
+            bailout("Line: %d   Expected operator but found parenthesized expression '%s'" % (lineNumber, s))
     else:
         # Single atomic token
 
@@ -447,14 +446,14 @@ def evalArg( lineNumber, parser, accumValue, maxBytes ):
         # A.0, A.1, HIGH, LOW
 
         if altSyntax is True:
-            ma = re.match( r'^(LOW|HIGH)$', s, re.IGNORECASE )
+            ma = re.match(r'^(LOW|HIGH)$', s, re.IGNORECASE)
         else:
-            ma = re.match( r'^A.([0-1])$', s )
+            ma = re.match(r'^A.([0-1])$', s)
 
         if ma is not None:
             # Unary Operator - Low or high byte of address
-            logDebug( "Get address byte" )
-            v, ebytes = evalArg( lineNumber, parser, accumValue, maxBytes )
+            logDebug("Get address byte")
+            v, ebytes = evalArg(lineNumber, parser, accumValue, maxBytes)
             maxBytes = 1
 
             if altSyntax is True:
@@ -465,19 +464,19 @@ def evalArg( lineNumber, parser, accumValue, maxBytes ):
             if lowByte is True:
                 value = v & 0xFF
             else:
-                value = (v>>8) & 0xFF
+                value = (v >> 8) & 0xFF
 
-        elif re.match( r'\s*([\-\+\*\/])', s ) is not None:
+        elif re.match(r'\s*([\-\+\*\/])', s) is not None:
             # Binary Operator
 
             if accumValue is None:
-                bailout( "Line: %d   Found binary operator '%s' but expected value or unary operator" % ( lineNumber, s ) )
+                bailout("Line: %d   Found binary operator '%s' but expected value or unary operator" % (lineNumber, s))
             else:
-                v, ebytes = evaluate( lineNumber, parser, maxBytes )
+                v, ebytes = evaluate(lineNumber, parser, maxBytes)
                 if v is None:
-                    bailout( "Line: %d   Bad argument for operator '%s'" % ( lineNumber, s ) )
+                    bailout("Line: %d   Bad argument for operator '%s'" % (lineNumber, s))
 
-                logDebug( "Adding %d to %d" % (v,accumValue))
+                logDebug("Adding %d to %d" % (v, accumValue))
                 if s == '+':
                     value = accumValue + v
                 if s == '-':
@@ -487,37 +486,36 @@ def evalArg( lineNumber, parser, accumValue, maxBytes ):
                 if s == '/':
                     value = accumValue / v
 
-                maxBytes = max(maxBytes,len(ebytes))
+                maxBytes = max(maxBytes, len(ebytes))
         else:
             # Not an operator, must be a value
 
             if accumValue is None:
 
                 # A character constant?
-                m = re.match( r"'(.)'", s )
+                m = re.match(r"'(.)'", s)
                 if m:
                     s = m.group(1)
                     chars = list(s)
                     value = ord(chars[0])
-                    maxBytes = max(maxBytes,1)
+                    maxBytes = max(maxBytes, 1)
                 else:
 
-                    value, ebytes = obtainTokenValue( s )
-                    logDebug( "Token value is %s - %s" % (value,ebytes) )
+                    value, ebytes = obtainTokenValue(s)
+                    logDebug("Token value is %s - %s" % (value, ebytes))
                     if value is None:
-                        return ( None, None )        # Could not obtain a value
-                    maxBytes = max(maxBytes,len(ebytes))
+                        return (None, None)        # Could not obtain a value
+                    maxBytes = max(maxBytes, len(ebytes))
             else:
-                bailout( "Line: %d   Expected operator but found value '%s'" % ( lineNumber, s ) )
-
+                bailout("Line: %d   Expected operator but found value '%s'" % (lineNumber, s))
 
     # recalculate the bytes
     if value is not None:
-        logDebug( "Recalculate the byte array. Max bytes %d" % maxBytes )
-        ebytes = buildBytes( value, maxBytes )
+        logDebug("Recalculate the byte array. Max bytes %d" % maxBytes)
+        ebytes = buildBytes(value, maxBytes)
 
-    logDebug( "--- Evaluate returning %s : %s" % (value,ebytes) )
-    return ( value, ebytes )
+    logDebug("--- Evaluate returning %s : %s" % (value, ebytes))
+    return (value, ebytes)
 
 
 # ----------------------------------------------------------------
@@ -537,27 +535,27 @@ def evalArg( lineNumber, parser, accumValue, maxBytes ):
 #   DC 085H, 'LIMI', 0D4H
 #   DC 8
 #
-def assembleDC( body ):
+def assembleDC(body):
     global address
 
-    logDebug( "Assemble DC '%s'" % body )
+    logDebug("Assemble DC '%s'" % body)
 
     startAddr = address
 
     bytes = bytearray()
 
     # Break up into chunks
-    chunks = body.split( ',' )
+    chunks = body.split(',')
     for chunk in chunks:
         chunk = chunk.strip()
-        m = re.match( r"'(.+)'", chunk )
+        m = re.match(r"'(.+)'", chunk)
         if m:
             s = m.group(1)
             chars = list(s)
             for c in chars:
-                bytes.append( ord(c) )
+                bytes.append(ord(c))
         else:
-            v, ebytes = calcExpression( lineNumber, chunk )   # FRAK
+            v, ebytes = calcExpression(lineNumber, chunk)   # FRAK
             # print( "Literal expression evaluated to %s %s" % ( v, ebytes ) )
             # logDebug( ebytes )
             if v is None:
@@ -566,107 +564,106 @@ def assembleDC( body ):
                     v = 0
                     ebytes = b'\00\00'
                 else:
-                    bailout( "Line: %d   Unresolved expression '%s'" % ( lineNumber, chunk ) )
+                    bailout("Line: %d   Unresolved expression '%s'" % (lineNumber, chunk))
             if ebytes is not None:
                 # Sequence of bytes
-                bytes.extend( ebytes )
+                bytes.extend(ebytes)
 
     address += len(bytes)
-    return ( startAddr, bytes )
+    return (startAddr, bytes)
 
 
-def parseRegister( arg ):
-    m = re.match( r'^R?([0-9A-F])', arg )
+def parseRegister(arg):
+    m = re.match(r'^R?([0-9A-F])', arg)
     if m is not None:
-        return int(m.group(1),16)
+        return int(m.group(1), 16)
     else:
         if passNumber == 1:
             # symbols not resolved yet
             return 0
-        v, __ = calcExpression( lineNumber, arg )
+        v, __ = calcExpression(lineNumber, arg)
         # print( v, aflag, lflag, ebytes )
         if v is not None:
             if v < 0 or v > 15:
-                bailout( "Line: %d  Invalid register value %d for '%s'" % (lineNumber, v, arg) )
+                bailout("Line: %d  Invalid register value %d for '%s'" % (lineNumber, v, arg))
             else:
                 return v
         else:
-            bailout( "Line: %d  Invalid register '%s'" % (lineNumber, arg) )
+            bailout("Line: %d  Invalid register '%s'" % (lineNumber, arg))
 
 
-def assembleRegOp( opBase, arg, bytes ):
-    r = parseRegister( arg )
-    bytes.append( opBase + r )
+def assembleRegOp(opBase, arg, bytes):
+    r = parseRegister(arg)
+    bytes.append(opBase + r)
 
 
-def assembleLoadN( opBase, arg, bytes ):
-    r = parseRegister( arg )
+def assembleLoadN(opBase, arg, bytes):
+    r = parseRegister(arg)
     if r == 0:
-        bailout( "Line: %d   Register for Load N operation cannot be zero" % lineNumber )
-    bytes.append( opBase + r )
+        bailout("Line: %d   Register for Load N operation cannot be zero" % lineNumber)
+    bytes.append(opBase + r)
 
 
 # Parses a value or an address. Address must use the A.0() or A.1() formats
-def assembleImmediate( opBase, arg, bytes ):
+def assembleImmediate(opBase, arg, bytes):
     if passNumber == 1:
-        bytes.append( 0 )
-        bytes.append( 0 )
+        bytes.append(0)
+        bytes.append(0)
         return
 
-    v, __ = calcExpression( lineNumber, arg )
+    v, __ = calcExpression(lineNumber, arg)
     if v is None:
-        bailout( "Line: %d   Invalid argument (immediate) '%s'" % (lineNumber, arg) )
+        bailout("Line: %d   Invalid argument (immediate) '%s'" % (lineNumber, arg))
     elif v > 0xFF:
-        bailout( "Line: %d   Argument out of range, must be 0-255" % lineNumber )
+        bailout("Line: %d   Argument out of range, must be 0-255" % lineNumber)
 
-    bytes.append( opBase )
-    bytes.append( v )
+    bytes.append(opBase)
+    bytes.append(v)
 
 
 # Takes an address argument and emits the LSB
 # If the MSB differs from the immediate args address MSB, declare a branch range error
-def assembleShortBranch( opBase, arg, bytes ):
+def assembleShortBranch(opBase, arg, bytes):
     if passNumber == 1:
-        bytes.append( 0 )
-        bytes.append( 0 )
+        bytes.append(0)
+        bytes.append(0)
         return
 
-    v, __ = calcExpression( lineNumber, arg )    # FRAK
+    v, __ = calcExpression(lineNumber, arg)    # FRAK
     if v is None:
-        bailout( "Line: %d   Invalid argument (short branch)" % lineNumber )
-    logDebug( "SB arg addr is 0x%04X" % ( address+1 ) )
-    a_page = (address+1)>>8 & 0xFF
-    b_page = (v)>>8 & 0xFF
+        bailout("Line: %d   Invalid argument (short branch)" % lineNumber)
+    logDebug("SB arg addr is 0x%04X" % (address + 1))
+    a_page = (address + 1) >> 8 & 0xFF
+    b_page = (v) >> 8 & 0xFF
     if a_page != b_page:
-        bailout( "Line: %d   Branch out of range" % lineNumber )
-    bytes.append( opBase )
-    bytes.append( v & 0xFF )
-
+        bailout("Line: %d   Branch out of range" % lineNumber)
+    bytes.append(opBase)
+    bytes.append(v & 0xFF)
 
 
 # Takes an address argument and emits the MSB and LSB
-def assembleLongBranch( opBase, arg, bytes ):
+def assembleLongBranch(opBase, arg, bytes):
     if passNumber == 1:
-        bytes.append( 0 )
-        bytes.append( 0 )
-        bytes.append( 0 )
+        bytes.append(0)
+        bytes.append(0)
+        bytes.append(0)
         return
 
-    v, __ = calcExpression( lineNumber, arg )    # FRAK
+    v, __ = calcExpression(lineNumber, arg)    # FRAK
     if v is None:
-        bailout( "Line: %d   Invalid argument (long branch)" % lineNumber )
-    bytes.append( opBase )
-    bytes.append( v>>8 & 0xFF )
-    bytes.append( v & 0xFF )
+        bailout("Line: %d   Invalid argument (long branch)" % lineNumber)
+    bytes.append(opBase)
+    bytes.append(v >> 8 & 0xFF)
+    bytes.append(v & 0xFF)
 
 
 # Parses an integer value 1-7
-def assembleInputOutput( opBase, arg, bytes ):
-    m = re.match( r'^([0-7]$)', arg )
+def assembleInputOutput(opBase, arg, bytes):
+    m = re.match(r'^([0-7]$)', arg)
     if m:
-        bytes.append( opBase + int(m.group(1),10) )
+        bytes.append(opBase + int(m.group(1), 10))
     else:
-        bailout( "Line: %d   IO port must be 1-7" % lineNumber )
+        bailout("Line: %d   IO port must be 1-7" % lineNumber)
 
 
 #  mnemonic : [opcode], [func]
@@ -678,112 +675,112 @@ opTable = {
     "INC": (0x10, assembleRegOp),
     "DEC": (0x20, assembleRegOp),
 
-    "BR" :    ( 0x30, assembleShortBranch ),
-    "BQ" :    ( 0x31, assembleShortBranch ),
-    "BZ" :    ( 0x32, assembleShortBranch ),
-    "BDF" :   ( 0x33, assembleShortBranch ),
-    "BPZ" :   ( 0x33, assembleShortBranch ),
-    "BGE" :   ( 0x33, assembleShortBranch ),
-    "B1" :    ( 0x34, assembleShortBranch ),
-    "B2" :    ( 0x35, assembleShortBranch ),
-    "B3" :    ( 0x36, assembleShortBranch ),
-    "B4" :    ( 0x37, assembleShortBranch ),
-    "NBR" :   ( 0x38, None ),
-    "SKP" :   ( 0x38, None ),
-    "BNQ" :   ( 0x39, assembleShortBranch ),
-    "BNZ" :   ( 0x3A, assembleShortBranch ),
-    "BNF" :   ( 0x3B, assembleShortBranch ),
-    "BM" :    ( 0x3B, assembleShortBranch ),
-    "BL" :    ( 0x3B, assembleShortBranch ),
-    "BN1" :   ( 0x3C, assembleShortBranch ),
-    "BN2" :   ( 0x3D, assembleShortBranch ),
-    "BN3" :   ( 0x3E, assembleShortBranch ),
-    "BN4" :   ( 0x3F, assembleShortBranch ),
+    "BR": (0x30, assembleShortBranch),
+    "BQ": (0x31, assembleShortBranch),
+    "BZ": (0x32, assembleShortBranch),
+    "BDF": (0x33, assembleShortBranch),
+    "BPZ": (0x33, assembleShortBranch),
+    "BGE": (0x33, assembleShortBranch),
+    "B1": (0x34, assembleShortBranch),
+    "B2": (0x35, assembleShortBranch),
+    "B3": (0x36, assembleShortBranch),
+    "B4": (0x37, assembleShortBranch),
+    "NBR": (0x38, None),
+    "SKP": (0x38, None),
+    "BNQ": (0x39, assembleShortBranch),
+    "BNZ": (0x3A, assembleShortBranch),
+    "BNF": (0x3B, assembleShortBranch),
+    "BM": (0x3B, assembleShortBranch),
+    "BL": (0x3B, assembleShortBranch),
+    "BN1": (0x3C, assembleShortBranch),
+    "BN2": (0x3D, assembleShortBranch),
+    "BN3": (0x3E, assembleShortBranch),
+    "BN4": (0x3F, assembleShortBranch),
 
-    "LDA" :   ( 0x40, assembleRegOp ),
+    "LDA": (0x40, assembleRegOp),
 
-    "STR" :   ( 0x50, assembleRegOp ),
+    "STR": (0x50, assembleRegOp),
 
-    "IRX" :   ( 0x60, None ),
+    "IRX": (0x60, None),
 
-    "OUT" :   ( 0x60, assembleInputOutput ),    # 61 - 67
-                                                # 68 Reserved
-    "INP" :    ( 0x68, assembleInputOutput ),    # 69 - 6F
+    "OUT": (0x60, assembleInputOutput),    # 61 - 67
+    # 68 Reserved
+    "INP": (0x68, assembleInputOutput),    # 69 - 6F
 
-    "RET" :   ( 0x70, None ),
-    "DIS" :   ( 0x71, None ),
-    "LDXA" :  ( 0x72, None ),
-    "STXD" :  ( 0x73, None ),
-    "ADC" :   ( 0x74, None ),
-    "SDB" :   ( 0x75, None ),
-    "SHRC" :  ( 0x76, None ),
-    "RSHR" :  ( 0x76, None ),
-    "SMB" :   ( 0x77, None ),
-    "SAV" :   ( 0x78, None ),
-    "MARK" :  ( 0x79, None ),
-    "REQ" :   ( 0x7A, None ),
-    "SEQ" :   ( 0x7B, None ),
-    "ADCI" :  ( 0x7C, assembleImmediate ),
-    "SDBI" :  ( 0x7D, assembleImmediate ),
-    "SHLC" :  ( 0x7E, None ),
-    "RSHL" :  ( 0x7E, None ),
-    "SMBI" :  ( 0x7F, assembleImmediate ),
+    "RET": (0x70, None),
+    "DIS": (0x71, None),
+    "LDXA": (0x72, None),
+    "STXD": (0x73, None),
+    "ADC": (0x74, None),
+    "SDB": (0x75, None),
+    "SHRC": (0x76, None),
+    "RSHR": (0x76, None),
+    "SMB": (0x77, None),
+    "SAV": (0x78, None),
+    "MARK": (0x79, None),
+    "REQ": (0x7A, None),
+    "SEQ": (0x7B, None),
+    "ADCI": (0x7C, assembleImmediate),
+    "SDBI": (0x7D, assembleImmediate),
+    "SHLC": (0x7E, None),
+    "RSHL": (0x7E, None),
+    "SMBI": (0x7F, assembleImmediate),
 
-    "GLO" :   ( 0x80, assembleRegOp ),
-    "GHI" :   ( 0x90, assembleRegOp ),
+    "GLO": (0x80, assembleRegOp),
+    "GHI": (0x90, assembleRegOp),
 
-    "PLO" :   ( 0xA0, assembleRegOp ),
-    "PHI" :   ( 0xB0, assembleRegOp ),
+    "PLO": (0xA0, assembleRegOp),
+    "PHI": (0xB0, assembleRegOp),
 
-    "LBR" :   ( 0xC0, assembleLongBranch ),
-    "LBQ" :   ( 0xC1, assembleLongBranch ),
-    "LBZ" :   ( 0xC2, assembleLongBranch ),
-    "LBDF" :  ( 0xC3, assembleLongBranch ),
-    "NOP" :   ( 0xC4, None ),
-    "LSNQ" :  ( 0xC5, None ),
-    "LSNZ" :  ( 0xC6, None ),
-    "LSNF" :  ( 0xC7, None ),
-    "LSKP" :  ( 0xC8, None ),
-    "NLBR" :  ( 0xC8, None ),
-    "LBNQ" :  ( 0xC9, assembleLongBranch ),
-    "LBNZ" :  ( 0xCA, assembleLongBranch ),
-    "LBNF" :  ( 0xCB, assembleLongBranch ),
-    "LSIE" :  ( 0xCC, None ),
-    "LSQ" :   ( 0xCD, None ),
-    "LSZ" :   ( 0xCE, None ),
-    "LSDF" :  ( 0xCF, None ),
+    "LBR": (0xC0, assembleLongBranch),
+    "LBQ": (0xC1, assembleLongBranch),
+    "LBZ": (0xC2, assembleLongBranch),
+    "LBDF": (0xC3, assembleLongBranch),
+    "NOP": (0xC4, None),
+    "LSNQ": (0xC5, None),
+    "LSNZ": (0xC6, None),
+    "LSNF": (0xC7, None),
+    "LSKP": (0xC8, None),
+    "NLBR": (0xC8, None),
+    "LBNQ": (0xC9, assembleLongBranch),
+    "LBNZ": (0xCA, assembleLongBranch),
+    "LBNF": (0xCB, assembleLongBranch),
+    "LSIE": (0xCC, None),
+    "LSQ": (0xCD, None),
+    "LSZ": (0xCE, None),
+    "LSDF": (0xCF, None),
 
-    "SEP" :   ( 0xD0, assembleRegOp ),
+    "SEP": (0xD0, assembleRegOp),
 
-    "SEX" :   ( 0xE0, assembleRegOp ),
+    "SEX": (0xE0, assembleRegOp),
 
-    "LDX" :   ( 0xF0, None ),
-    "OR" :    ( 0xF1, None ),
-    "AND" :   ( 0xF2, None ),
-    "XOR" :   ( 0xF3, None ),
-    "ADD" :   ( 0xF4, None ),
-    "SD" :    ( 0xF5, None ),
-    "SHR" :   ( 0xF6, None ),
-    "SM" :    ( 0xF7, None ),
-    "LDI" :   ( 0xF8, assembleImmediate ),
-    "ORI" :   ( 0xF9, assembleImmediate ),
-    "ANI" :   ( 0xFA, assembleImmediate ),
-    "XRI" :   ( 0xFB, assembleImmediate ),
-    "ADI" :   ( 0xFC, assembleImmediate ),
-    "SDI" :   ( 0xFD, assembleImmediate ),
-    "SHL" :   ( 0xFE, None ),
-    "SMI" :   ( 0xFF, assembleImmediate )
+    "LDX": (0xF0, None),
+    "OR": (0xF1, None),
+    "AND": (0xF2, None),
+    "XOR": (0xF3, None),
+    "ADD": (0xF4, None),
+    "SD": (0xF5, None),
+    "SHR": (0xF6, None),
+    "SM": (0xF7, None),
+    "LDI": (0xF8, assembleImmediate),
+    "ORI": (0xF9, assembleImmediate),
+    "ANI": (0xFA, assembleImmediate),
+    "XRI": (0xFB, assembleImmediate),
+    "ADI": (0xFC, assembleImmediate),
+    "SDI": (0xFD, assembleImmediate),
+    "SHL": (0xFE, None),
+    "SMI": (0xFF, assembleImmediate)
 }
 
 
 # Returns a tuple of starting address and a byte array of the machine code.
-def assembleChunk( chunk ):
+def assembleChunk(chunk):
     global address
 
     # Get the opcode and optional argument
-    m = re.match( r'^(\w+)\s*(.*)', chunk )
+    m = re.match(r'^(\w+)\s*(.*)', chunk)
     if m is None:
-        bailout( "Line: %d  Invalid line '%s'" % (lineNumber, chunk) )
+        bailout("Line: %d  Invalid line '%s'" % (lineNumber, chunk))
 
     bytes = bytearray()
     startAddr = address
@@ -791,35 +788,34 @@ def assembleChunk( chunk ):
     opcode = m.group(1)
     mnemonic = m.group(1)
     arg = m.group(2)
-    logDebug( "Chunk '%s'  opcode '%s'  arg '%s'" % ( chunk, opcode, arg ) )
+    logDebug("Chunk '%s'  opcode '%s'  arg '%s'" % (chunk, opcode, arg))
 
     if mnemonic in opTable:
         opbase, func = opTable[mnemonic]
         if func:
-            logDebug( "Calling opcode func {0}".format(func) )
-            func( opbase, arg, bytes )
+            logDebug("Calling opcode func {0}".format(func))
+            func(opbase, arg, bytes)
         elif opbase is not None:
-            logDebug( "Appending opbase {0}".format(opbase) )
-            bytes.append( opbase )
+            logDebug("Appending opbase {0}".format(opbase))
+            bytes.append(opbase)
         else:
-            bailout( "Internal error - invalid table for opcode '%s'" % mnemonic )
+            bailout("Internal error - invalid table for opcode '%s'" % mnemonic)
     else:
-        bailout( "Line: %d  Invalid mnemonic '%s'" % ( lineNumber, chunk ) )
+        bailout("Line: %d  Invalid mnemonic '%s'" % (lineNumber, chunk))
 
     address += len(bytes)
-    return ( startAddr, bytes )
+    return (startAddr, bytes)
 
 
-
-#----------------------------------------------------------------
+# ----------------------------------------------------------------
 #
-#----------------------------------------------------------------
+# ----------------------------------------------------------------
 
 # Emit the results of a line of code.
 #
 # This will also deal with breaking the hex bytes flow to the next line if the width is too great.
 #
-def emitCode( startAddr, bytes ):
+def emitCode(startAddr, bytes):
     global pgmImage
 
     # Add bytes to the program image
@@ -834,41 +830,39 @@ def emitCode( startAddr, bytes ):
         if len(hexStr) >= (BYTES_PER_LINE * 2):
             hexStr += ';'
             if overflow == False:
-                emitListing( "%04X %-14s %04d  %s" % ( startAddr, hexStr, lineNumber, curLine ) )
+                emitListing("%04X %-14s %04d  %s" % (startAddr, hexStr, lineNumber, curLine))
                 hexStr = ""
                 overflow = True
             else:
-                emitListing( "%04X %s" % ( startAddr, hexStr ) )
+                emitListing("%04X %s" % (startAddr, hexStr))
                 hexStr = ""
             startAddr += BYTES_PER_LINE
 
     if hexStr != "":
         hexStr += ';'
         if overflow == False:
-            emitListing( "%04X %-14s %04d  %s" % ( startAddr, hexStr, lineNumber, curLine ) )
+            emitListing("%04X %-14s %04d  %s" % (startAddr, hexStr, lineNumber, curLine))
         else:
-            emitListing( "%04X %s" % ( startAddr, hexStr ) )
+            emitListing("%04X %s" % (startAddr, hexStr))
 
 
-def processEquate( label, body ):
+def processEquate(label, body):
     body = body.strip()
 
     if passNumber == 1:
-        addSymbolEquate( label, body )
+        addSymbolEquate(label, body)
     emitNoCode()
 
 
-
-def processOrigin( body ):
+def processOrigin(body):
     global address
 
-    v, __ = calcExpression( lineNumber, body )
+    v, __ = calcExpression(lineNumber, body)
     if v is None:
-        bailout( "Line: %d  Unable to resolve origin address for '%s'" % ( lineNumber, body ) )
+        bailout("Line: %d  Unable to resolve origin address for '%s'" % (lineNumber, body))
 
     emitNoCode()
     address = v
-
 
 
 def processPage():
@@ -878,58 +872,53 @@ def processPage():
 
     if address & 0xFF != 0:
         # Adjust the address to the next 256-byte page start
-        page = address>>8 & 0xFF
+        page = address >> 8 & 0xFF
         page += 1
 
-        address = page<<8
+        address = page << 8
 
 
-
-def processIf( body ):
+def processIf(body):
     global okToEmitCode
 
     emitNoCode()
 
-    v, __ = calcExpression( lineNumber, body )
+    v, __ = calcExpression(lineNumber, body)
     if v is None:
-        bailout( "Line: %d  Unable to resolve conditional expression for '%s'" % ( lineNumber, body ) )
-    c = ConditionalBlock( okToEmitCode, v != 0 )
+        bailout("Line: %d  Unable to resolve conditional expression for '%s'" % (lineNumber, body))
+    c = ConditionalBlock(okToEmitCode, v != 0)
     conditionalStack.append(c)
     okToEmitCode = c.state
-    logDebug( "cblock %s" % c )
-    logDebug( "Ok to emit code = %d" % okToEmitCode )
-
+    logDebug("cblock %s" % c)
+    logDebug("Ok to emit code = %d" % okToEmitCode)
 
 
 def processElse():
     global okToEmitCode
     emitNoCode()
     if len(conditionalStack) < 1:
-        bailout( "Line: %d: Found a conditional block 'else' while not in a conditional block" % lineNumber )
+        bailout("Line: %d: Found a conditional block 'else' while not in a conditional block" % lineNumber)
     f = conditionalStack[-1].blockToElse()
     if f == False:
-        bailout( "Line: %d: Found a second conditional block 'else' while already in an else block" % lineNumber )
+        bailout("Line: %d: Found a second conditional block 'else' while already in an else block" % lineNumber)
     okToEmitCode = conditionalStack[-1].state
-    logDebug( "cblock %s" % conditionalStack[0] )
-    logDebug( "Ok to emit code = %d" % okToEmitCode )
-
-
+    logDebug("cblock %s" % conditionalStack[0])
+    logDebug("Ok to emit code = %d" % okToEmitCode)
 
 
 def processEndif():
     global okToEmitCode
     emitNoCode()
     if len(conditionalStack) < 1:
-        bailout( "Line: %d: Found a conditional block 'end' while not in a conditional block" % lineNumber )
+        bailout("Line: %d: Found a conditional block 'end' while not in a conditional block" % lineNumber)
 
     conditionalStack.pop()
     if len(conditionalStack) > 0:
         okToEmitCode = conditionalStack[-1].state
-        logDebug( "cblock %s" % conditionalStack[0] )
+        logDebug("cblock %s" % conditionalStack[0])
     else:
         okToEmitCode = True
-    logDebug( "Ok to emit code = %d" % okToEmitCode )
-
+    logDebug("Ok to emit code = %d" % okToEmitCode)
 
 
 # Emit the contents of a source line that generated no code.
@@ -939,26 +928,25 @@ def processEndif():
 def emitNoCode():
     if passNumber == 2:
         if curLine == "":
-            emitListing( "%04X ;              %04d" % (address, lineNumber) )
+            emitListing("%04X ;              %04d" % (address, lineNumber))
         else:
-            emitListing( "%04X ;              %04d  %s" % (address, lineNumber, curLine) )
+            emitListing("%04X ;              %04d  %s" % (address, lineNumber, curLine))
 
 
-
-#----------------------------------------------------------------
+# ----------------------------------------------------------------
 #
-#----------------------------------------------------------------
+# ----------------------------------------------------------------
 
 #
 # Process a line of source
 #
 #
-def processLine( line ):
+def processLine(line):
     global curLine
 
     # line = line.rstrip()    # remove trailing whitespace
 
-    logDebug( "------- Line '%s'" % line )
+    logDebug("------- Line '%s'" % line)
 
     curLine = line.rstrip()    # remove trailing whitespace, just because printing it on on the listing is silly.
 
@@ -970,7 +958,7 @@ def processLine( line ):
     # Equate?
     # Since equates are allowed to start in the first column, we have to test for them first to prevent
     # them from being treated as a label.
-    m = re.match( r'^\s*(\w+)\s+EQU\s+(.+)', line, re.IGNORECASE )
+    m = re.match(r'^\s*(\w+)\s+EQU\s+(.+)', line, re.IGNORECASE)
     if m:
         # Line is an equate
         if not okToEmitCode:
@@ -980,19 +968,18 @@ def processLine( line ):
 
         label = m.group(1)
         body = m.group(2)
-        logDebug( "Equate: '%s'   body '%s'" % ( label, body ) )
+        logDebug("Equate: '%s'   body '%s'" % (label, body))
         # The remainder of the equate line (everything after the "equ") must be a single chunk.
         chunker = Chunker.Chunker(body, semicolonComments=altSyntax)
-        logDebug( "chunks: %s" % chunker.chunks )
+        logDebug("chunks: %s" % chunker.chunks)
         if len(chunker.chunks) != 1:
-            bailout( "Line: %d  Equate body parse failed" % lineNumber )
-        logDebug( "Equate: '%s'   value chunk '%s'" % ( label, chunker.chunks[0] ) )
-        processEquate( label, chunker.chunks[0] )
+            bailout("Line: %d  Equate body parse failed" % lineNumber)
+        logDebug("Equate: '%s'   value chunk '%s'" % (label, chunker.chunks[0]))
+        processEquate(label, chunker.chunks[0])
         return
 
-
     # Label?
-    m = re.match( r'^(\w+):?\s*(.*)', line )
+    m = re.match(r'^(\w+):?\s*(.*)', line)
     if m:
         # Line has a label
         if not okToEmitCode:
@@ -1002,13 +989,13 @@ def processLine( line ):
 
         label = m.group(1)
         body = m.group(2)
-        logDebug( "Label: '%s'   remainder '%s'" % ( label, body ) )
+        logDebug("Label: '%s'   remainder '%s'" % (label, body))
         if passNumber == 1:
             # Add it to the symbol table!
-            addSymbolLabel( label, address )
+            addSymbolLabel(label, address)
         elif passNumber == 2:
             # Make sure the address matches, for sanity checking.
-            confirmSymbolAddress( label, address )
+            confirmSymbolAddress(label, address)
 
         line = body   # Basically strip the label from the line, then it gets processed as usual.
 
@@ -1021,7 +1008,6 @@ def processLine( line ):
         # No chunks or label, just an empty line. Or a label!
         emitNoCode()
         return
-
 
     firstChunk = True    # First chunk is special, it can be a directive.
     startAddr = None
@@ -1040,65 +1026,60 @@ def processLine( line ):
 
         body = chunk
 
-        logDebug( "Body '%s'" % body )
+        logDebug("Body '%s'" % body)
 
         if altSyntax == True:
-            m = re.match( r'^DB\s+(.*)', body )
+            m = re.match(r'^DB\s+(.*)', body)
         else:
-            m = re.match( r'^DC\s+(.*)', body )
+            m = re.match(r'^DC\s+(.*)', body)
 
         if m:
             # Line is a DC directive
             body = m.group(1)
-            addr, bytes = assembleDC( body )
+            addr, bytes = assembleDC(body)
             if startAddr == None:
                 startAddr = addr
-            lineBytes.extend( bytes )
+            lineBytes.extend(bytes)
         else:
             # Looks like we have a normal statment, opcode style!
-            addr, bytes = assembleChunk( body )
+            addr, bytes = assembleChunk(body)
             if startAddr == None:
                 # Capture the address of the first instructions of the line.
                 # (We may acumulate more instructions in subsequent chunks.)
                 startAddr = addr
-            lineBytes.extend( bytes )
+            lineBytes.extend(bytes)
 
     if passNumber == 2 and len(lineBytes) > 0:
         # This is the code emiting pass, and we have machine code to emit.
-        emitCode( startAddr, lineBytes )
-
-
+        emitCode(startAddr, lineBytes)
 
 
 def processDirective(line):
 
     # IF?
-    m = re.match( r'^IF\s+(.+)', line, re.IGNORECASE )
+    m = re.match(r'^IF\s+(.+)', line, re.IGNORECASE)
     if m:
         # Line is an IF directive
         body = m.group(1)
-        logDebug( "If: '%s'" % ( body ) )
-        processIf( body )
+        logDebug("If: '%s'" % (body))
+        processIf(body)
         return True
 
-
     # ELSE?
-    m = re.match( r'^ELSE$', line, re.IGNORECASE )
+    m = re.match(r'^ELSE$', line, re.IGNORECASE)
     if m:
         # Line is an else directive
-        logDebug( "Else" )
+        logDebug("Else")
         processElse()
         return True
 
-
     # ENDI?
-    m = re.match( r'^ENDI$', line, re.IGNORECASE )
+    m = re.match(r'^ENDI$', line, re.IGNORECASE)
     if m:
         # Line is an end if directive
-        logDebug( "End If" )
+        logDebug("End If")
         processEndif()
         return True
-
 
     if not okToEmitCode:
         emitNoCode()
@@ -1107,29 +1088,27 @@ def processDirective(line):
     # - - - - - - - - - - - - - - - - -
 
     # Org?
-    m = re.match( r'^ORG\s+(.*)', line, re.IGNORECASE )
+    m = re.match(r'^ORG\s+(.*)', line, re.IGNORECASE)
     if m:
         # Line is an origin directive
         body = m.group(1)
-        logDebug( "Origin: '%s'" % ( body ) )
-        processOrigin( body )
+        logDebug("Origin: '%s'" % (body))
+        processOrigin(body)
         return True
 
-
     # PAGE?
-    m = re.match( r'^PAGE(.*)', line, re.IGNORECASE )
+    m = re.match(r'^PAGE(.*)', line, re.IGNORECASE)
     if m:
         # Line is a page directive
-        logDebug( "Page" )
+        logDebug("Page")
         processPage()
         return True
 
-
     # END?
-    m = re.match( r'^END(.*)', line, re.IGNORECASE )
+    m = re.match(r'^END(.*)', line, re.IGNORECASE)
     if m:
         # Line is a END directive
-        logDebug( "End" )
+        logDebug("End")
         emitNoCode()
         # TODO: Should ignore everything after this line?
         return True
@@ -1137,29 +1116,27 @@ def processDirective(line):
     return False
 
 
-
-#----------------------------------------------------------------
+# ----------------------------------------------------------------
 #
-#----------------------------------------------------------------
+# ----------------------------------------------------------------
 
 
 #
 # First pass - create the symbol table
 #
-def firstPass( lines ):
+def firstPass(lines):
     global passNumber, lineNumber
 
     if verbose > 1:
-        print( "=========================== First Pass ==============================")
+        print("=========================== First Pass ==============================")
     elif verbose > 0:
-        print( "First Pass..." )
+        print("First Pass...")
 
     passNumber = 1
     lineNumber = 0
     for line in lines:
         lineNumber += 1
-        processLine( line )
-
+        processLine(line)
 
 
 #
@@ -1168,70 +1145,67 @@ def firstPass( lines ):
 # In this pass, we do the actual assembly since we now have the complete symbol table that was
 # created in the first pass.
 #
-def secondPass( lines ):
+def secondPass(lines):
     global passNumber, lineNumber, address
 
     if verbose > 1:
-        print( "=========================== Second Pass ==============================")
+        print("=========================== Second Pass ==============================")
     elif verbose > 0:
-        print( "Second Pass..." )
+        print("Second Pass...")
 
     passNumber = 2
     lineNumber = 0
     address = 0
     for line in lines:
         lineNumber += 1
-        processLine( line )
+        processLine(line)
 
 
-
-
-def assembleFile( src ):
+def assembleFile(src):
     global pgmImage
 
     lines = src.readlines()
 
-    firstPass( lines )
-    logVerbose( "Last address used: 0x%04X" % (address-1) )
+    firstPass(lines)
+    logVerbose("Last address used: 0x%04X" % (address - 1))
 
     if sizeLimit:
         if address >= sizeLimit:
-            bailout( "Program too large by %d bytes" % ( (address - sizeLimit) ) )
+            bailout("Program too large by %d bytes" % ((address - sizeLimit)))
 
     # Set up a byte array to hold the assembled program image.
     pgmImage = bytearray()
     for _ in range(address):
-        pgmImage.append( 0xFF )    # pad byte
+        pgmImage.append(0xFF)    # pad byte
 
     resolveSymbols()
     # if verbose > 1:
     #     dumpSymbols()
 
-    secondPass( lines )
+    secondPass(lines)
 
 
-
-#----------------------------------------------------------------
+# ----------------------------------------------------------------
 #
-#----------------------------------------------------------------
+# ----------------------------------------------------------------
 
-def process( filename ):
+def process(filename):
     global listingDest, hexDest
 
-    rootname, __ = os.path.splitext( filename )
+    rootname, __ = os.path.splitext(filename)
 
     if displayFlag == True:
         listingDest = sys.stdout
         hexDest = sys.stdout
     else:
         listingFilename = rootname + ".lst"
-        listingDest = open( listingFilename, 'w' )
+        listingDest = open(listingFilename, 'w')
         hexFilename = rootname + ".hex"
-        hexDest = open( hexFilename, 'w' )
+        hexDest = open(hexFilename, 'w')
 
-    src = open( filename, 'r' )
+    src = open(filename, 'r')
 
-    assembleFile( src )
+    assembleFile(src)
 
     src.close()
 
@@ -1246,8 +1220,7 @@ def process( filename ):
         hexDest.close()
 
 
-
-def emitListing( text ):
+def emitListing(text):
     global listingDest
 
     if listingDest:
@@ -1283,27 +1256,25 @@ def logVerbose(msg):
         print(msg)
 
 
-
-def logDebug( msg ):
+def logDebug(msg):
     if verbose > 1:
-        print( msg )
+        print(msg)
 
 
-def logWarning( msg ):
+def logWarning(msg):
     if passNumber == 2:
-        print( "WARN: Line %d: %s" % ( lineNumber, msg ) )
+        print("WARN: Line %d: %s" % (lineNumber, msg))
 
 
-def bailout( msg ):
+def bailout(msg):
     if __name__ == '__main__':
-        print( "*** %s" % msg )
-        sys.exit( -1 )
+        print("*** %s" % msg)
+        sys.exit(-1)
     else:
-        raise Error( msg )
+        raise Error(msg)
 
 
-
-def main( argv ):
+def main(argv):
     global verbose, sizeLimit, displayFlag, altSyntax
 
     usage = """"%prog [options] <file>
@@ -1311,29 +1282,29 @@ def main( argv ):
 
     parser = optparse.OptionParser(usage=usage)
 
-    parser.add_option( "-a", "--altsyntax",
-                        action="store_true", dest="altSyntax", default=False,
-                        help="Alternate assembler syntax (; for comments)" )
+    parser.add_option("-a", "--altsyntax",
+                      action="store_true", dest="altSyntax", default=False,
+                      help="Alternate assembler syntax (; for comments)")
 
-    parser.add_option( "-s", "--size",
-                        action="store", type="int", dest="size", default=None,
-                        help="Maximum size of output. Error if this size is exceeded. (optional)" )
+    parser.add_option("-s", "--size",
+                      action="store", type="int", dest="size", default=None,
+                      help="Maximum size of output. Error if this size is exceeded. (optional)")
 
-    parser.add_option( "-d", "--display",
-                        action="store_true", dest="display", default=False,
-                        help="Display output on terminal. No files are produced." )
+    parser.add_option("-d", "--display",
+                      action="store_true", dest="display", default=False,
+                      help="Display output on terminal. No files are produced.")
 
-    parser.add_option( "-n", "--noaction",
-                        action="store_true", dest="noaction", default=False,
-                        help="Simulate the action" )
+    parser.add_option("-n", "--noaction",
+                      action="store_true", dest="noaction", default=False,
+                      help="Simulate the action")
 
-    parser.add_option( "-q", "--quiet",
-                        action="store_const", const=0, dest="verbose",
-                        help="quiet" )
+    parser.add_option("-q", "--quiet",
+                      action="store_const", const=0, dest="verbose",
+                      help="quiet")
 
-    parser.add_option( "-v", "--verbose",
-                        action="store_const", const=1, dest="verbose", default=1,
-                        help="verbose [default]" )
+    parser.add_option("-v", "--verbose",
+                      action="store_const", const=1, dest="verbose", default=1,
+                      help="verbose [default]")
 
     parser.add_option("--noisy",
                       action="store_const", const=2, dest="verbose",
@@ -1341,8 +1312,8 @@ def main( argv ):
 
     (options, args) = parser.parse_args(argv)
 
-    logDebug( options )
-    logDebug( args )
+    logDebug(options)
+    logDebug(args)
 
     verbose = options.verbose
     sizeLimit = options.size
@@ -1353,13 +1324,11 @@ def main( argv ):
     if len(args) > 1:
         filename = args[1]
     else:
-        print( "No file name given." )
-        print( main.__doc__ )
+        print("No file name given.")
+        print(main.__doc__)
         sys.exit(1)
 
-    process( filename )
-
-
+    process(filename)
 
 
 if __name__ == '__main__':
@@ -1368,6 +1337,4 @@ if __name__ == '__main__':
     # sys.exit( main(["cosmacasm", "assembler/test_dc.src"]) or 0 )
     # sys.exit( main(["cosmacasm", "--noisy", "assembler/test/test_dc.src"]) or 0 )
     # sys.exit( main(["cosmacasm", "--noisy", "assembler/test/test_exp.src"]) or 0 )
-    sys.exit( main(sys.argv) or 0 )
-
-
+    sys.exit(main(sys.argv) or 0)
