@@ -829,7 +829,7 @@ def emitCode(startAddr, bytes):
         hexStr += pair
         if len(hexStr) >= (BYTES_PER_LINE * 2):
             hexStr += ';'
-            if overflow == False:
+            if overflow is False:
                 emitListing("%04X %-14s %04d  %s" % (startAddr, hexStr, lineNumber, curLine))
                 hexStr = ""
                 overflow = True
@@ -840,7 +840,7 @@ def emitCode(startAddr, bytes):
 
     if hexStr != "":
         hexStr += ';'
-        if overflow == False:
+        if overflow is False:
             emitListing("%04X %-14s %04d  %s" % (startAddr, hexStr, lineNumber, curLine))
         else:
             emitListing("%04X %s" % (startAddr, hexStr))
@@ -899,7 +899,7 @@ def processElse():
     if len(conditionalStack) < 1:
         bailout("Line: %d: Found a conditional block 'else' while not in a conditional block" % lineNumber)
     f = conditionalStack[-1].blockToElse()
-    if f == False:
+    if f is False:
         bailout("Line: %d: Found a second conditional block 'else' while already in an else block" % lineNumber)
     okToEmitCode = conditionalStack[-1].state
     logDebug("cblock %s" % conditionalStack[0])
@@ -1020,7 +1020,7 @@ def processLine(line):
             firstChunk = False
 
             # Directive?
-            if processDirective(chunk) == True:
+            if processDirective(chunk) is True:
                 # Yes, was a directive. Continue with next chunk
                 continue
 
@@ -1028,7 +1028,7 @@ def processLine(line):
 
         logDebug("Body '%s'" % body)
 
-        if altSyntax == True:
+        if altSyntax is True:
             m = re.match(r'^DB\s+(.*)', body)
         else:
             m = re.match(r'^DC\s+(.*)', body)
@@ -1037,13 +1037,13 @@ def processLine(line):
             # Line is a DC directive
             body = m.group(1)
             addr, bytes = assembleDC(body)
-            if startAddr == None:
+            if startAddr is None:
                 startAddr = addr
             lineBytes.extend(bytes)
         else:
             # Looks like we have a normal statment, opcode style!
             addr, bytes = assembleChunk(body)
-            if startAddr == None:
+            if startAddr is None:
                 # Capture the address of the first instructions of the line.
                 # (We may acumulate more instructions in subsequent chunks.)
                 startAddr = addr
@@ -1194,7 +1194,7 @@ def process(filename):
 
     rootname, __ = os.path.splitext(filename)
 
-    if displayFlag == True:
+    if displayFlag is True:
         listingDest = sys.stdout
         hexDest = sys.stdout
     else:
