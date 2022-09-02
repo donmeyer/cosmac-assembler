@@ -427,7 +427,7 @@ def evalArg(lineNumber, parser, accumValue, maxBytes):
     logDebug("Parsed '%s'" % s)
     if s is None:
         # Finished
-        return(None, None)
+        return (None, None)
 
     if parenthesized:
         if accumValue is None:

@@ -10,5 +10,6 @@
       ""
     ],
     "python.debug.script" : "cosmacasm.py"
-  }
+  },
+  "openLogOnRun" : "start"
 }
