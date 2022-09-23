@@ -408,7 +408,7 @@ def evaluate(lineNumber, parser, maxBytes):
     return (accumValue, ebytes)
 
 
-# evalArg - Parse value, parenthasized expression, ninary op, or unary op
+# evalArg - Parse value, parenthesized expression, binary op, or unary op
 #
 # if accumValue is None:
 #             value - store it
