@@ -71,6 +71,7 @@ okToEmitCode = True        # This is set by the if/else/endif statements as need
 #
 verbose = 1
 sizeLimit = None
+programBase = 0
 displayFlag = False
 altSyntax = False
 
@@ -856,6 +857,8 @@ def assembleChunk(chunk):
 def emitCode(startAddr, bytes):
     global pgmImage
 
+    if startAddr < programBase:
+        bailout("Data written to address 0x%04X below the program base of 0x%04X" % (startAddr, programBase))
     # Add bytes to the program image
     end = startAddr + len(bytes)
     pgmImage[startAddr:end] = bytes
@@ -1217,8 +1220,8 @@ def assembleFile(src):
     logVerbose("Last address used: 0x%04X" % (address - 1))
 
     if sizeLimit:
-        if address >= sizeLimit:
-            bailout("Program too large by %d bytes" % ((address - sizeLimit)))
+        if address >= sizeLimit + programBase:
+            bailout("Program too large by %d bytes" % ((address - (sizeLimit + programBase))))
 
     # Set up a byte array to hold the assembled program image.
     pgmImage = bytearray()
@@ -1282,6 +1285,8 @@ def writeHexFile():
 
 
 def dataToHexStrings(data):
+    if programBase > 0:
+        del data[:programBase]
     buf = ""
     bytes = 0
     for b in data:
@@ -1322,7 +1327,7 @@ def bailout(msg):
 
 
 def main(argv):
-    global verbose, sizeLimit, displayFlag, altSyntax
+    global verbose, sizeLimit, programBase, displayFlag, altSyntax
 
     usage = """"%prog [options] <file>
     File is assembly source."""
@@ -1336,6 +1341,10 @@ def main(argv):
     parser.add_option("-s", "--size",
                       action="store", type="int", dest="size", default=None,
                       help="Maximum size of output. Error if this size is exceeded. (optional)")
+
+    parser.add_option("-b", "--base",
+                      action="store", type="int", dest="base", default=0,
+                      help="Base offset of the program image. Default is 0x0000. (optional)")
 
     parser.add_option("-d", "--display",
                       action="store_true", dest="display", default=False,
@@ -1364,6 +1373,7 @@ def main(argv):
 
     verbose = options.verbose
     sizeLimit = options.size
+    programBase = options.base
     displayFlag = options.display
     altSyntax = options.altSyntax
 

@@ -6,8 +6,7 @@
   "extensionTemplate" : "pythonDebug",
   "extensionValues" : {
     "python.debug.customArgs" : [
-      "test\/test.src",
-      ""
+      "test\/test.src"
     ],
     "python.debug.script" : "cosmacasm.py"
   },
