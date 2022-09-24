@@ -573,6 +573,44 @@ def assembleDC(body):
     return (startAddr, bytes)
 
 
+def assembleLOAD(body):
+    """Process the LOAD macro.
+    Syntax is "LOAD Rn, <addr>
+    """
+    global address
+
+    logDebug("Assemble LOAD '%s'" % body)
+
+    startAddr = address
+    bytes = bytearray()
+
+    m = re.match(r"\s*R([0-9A-F])\s*,\s*(.+)\s*", body)
+    if m:
+        r = int(m.group(1), 16)
+        exp = m.group(2)
+        a, _ = calcExpression(lineNumber, exp)
+
+        if a is None:
+            if passNumber == 1:
+                # Forward ref ok for 1st pass
+                a = 0
+            else:
+                bailout("Line: %d   Unresolved expression '%s'" % (lineNumber, exp))
+
+        bytes.append(0xF8)
+        bytes.append(a // 256)
+        bytes.append(0xB0 + r)
+
+        bytes.append(0xF8)
+        bytes.append(a % 256)
+        bytes.append(0xA0 + r)
+    else:
+        bailout("Line: %d   Invalid LOAD '%s'" % (lineNumber, body))
+
+    address += len(bytes)
+    return (startAddr, bytes)
+
+
 def parseRegister(arg):
     m = re.match(r'^R?([0-9A-F])', arg)
     if m is not None:
@@ -1041,13 +1079,22 @@ def processLine(line):
                 startAddr = addr
             lineBytes.extend(bytes)
         else:
-            # Looks like we have a normal statment, opcode style!
-            addr, bytes = assembleChunk(body)
-            if startAddr is None:
-                # Capture the address of the first instructions of the line.
-                # (We may acumulate more instructions in subsequent chunks.)
-                startAddr = addr
-            lineBytes.extend(bytes)
+            m = re.match(r'^LOAD\s+(.*)', body)
+            if m:
+                # Line is a LOAD macro
+                body = m.group(1)
+                addr, bytes = assembleLOAD(body)
+                if startAddr is None:
+                    startAddr = addr
+                lineBytes.extend(bytes)
+            else:
+                # Looks like we have a normal statment, opcode style!
+                addr, bytes = assembleChunk(body)
+                if startAddr is None:
+                    # Capture the address of the first instructions of the line.
+                    # (We may acumulate more instructions in subsequent chunks.)
+                    startAddr = addr
+                lineBytes.extend(bytes)
 
     if passNumber == 2 and len(lineBytes) > 0:
         # This is the code emiting pass, and we have machine code to emit.

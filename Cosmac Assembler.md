@@ -25,12 +25,20 @@ By default the hex file is in a raw hex format.
 
 ---------------------------------------------------------------------------
 
-## Assembler Syntax
+# Assembler Syntax
+
+### LOAD Macro
+
+The LOAD macro syntax is "LOAD Rn, <addr>"
+
+Expands to machine language for:
+LDI A.1(addr); PHI Rn
+LDI A.0(addr); PLO Rn
 
 
-### Alternate Syntax
+## Alternate Syntax
 
-#### Comments
+### Comments
 
 For comments, it becomes ; versus ..
 Comments are indicated by two consecutive periods.
@@ -41,10 +49,10 @@ In the alternate syntax mode, comments are begun with a semicolon.
 
     ; Alternate comment!
 
-#### Constants
+### Constants
 
 DC becomes DB.
 
-#### Register Bytes
+### Register Bytes
 
 A.0 and A.1 become LOW and HIGH
