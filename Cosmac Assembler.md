@@ -36,7 +36,7 @@ The size limit option can be used to cause an error if the resulting code image 
 
 For example, if the program image is intended to fit into a 27C16 EPROM, setting the size limit to 2048 will give an error if the code size overflows.
 
-The program base is taken into account, so the size should be the total size, not the highest address. For example, a base offset of 0x100 and a size limit of 0x100 will result in the highest possible valid address being 0x01FF.
+The program base is taken into account, so the size should be the total size, not the highest address. For example, a base offset of 0x100 and a size limit of 0x100 will result in the highest possible valid address being 0xFF
 
 ---------------------------------------------------------------------------
 
