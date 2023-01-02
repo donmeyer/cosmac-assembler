@@ -1,6 +1,22 @@
 {
   "cc.aeron.nova-flake8.checkMode" : "onChange",
   "cc.aeron.nova-flake8.executablePath" : "\/Users\/don\/Library\/Python\/3.8\/bin\/flake8",
+  "eablokker.tabsSidebar.config.customKindGroupsOrder" : [
+    "plaintext",
+    "markdown",
+    "python",
+    "cosmac"
+  ],
+  "eablokker.tabsSidebar.config.customTabOrder" : [
+    "\/Users\/don\/Code\/Cosmac 1802\/Assembler\/test\/test.hex",
+    "\/Users\/don\/Code\/Cosmac 1802\/Assembler\/Cosmac Assembler.md",
+    "\/Users\/don\/Code\/Cosmac 1802\/Assembler\/README.md",
+    "\/Users\/don\/Code\/Cosmac 1802\/Assembler\/hexconvert.py",
+    "\/Users\/don\/Code\/Cosmac 1802\/Assembler\/cosmacasm.py",
+    "\/Users\/don\/Code\/Cosmac 1802\/Assembler\/test\/test.src",
+    "\/Users\/don\/Code\/Cosmac 1802\/Assembler\/test\/test.lst",
+    "\/Users\/don\/Code\/Cosmac 1802\/Assembler\/.flake8"
+  ],
   "python.interpreter" : "\/usr\/bin\/python3",
   "workspace.name" : "Cosmac Assembler"
 }
