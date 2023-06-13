@@ -119,7 +119,7 @@ def main(argv=None):
     If no output format is given, displays a summary of the file."""
 
     exts = {"hex": "hex", "intel": "ihex",
-            "mot": "s19", "bin": "bin", "src": "c" }  # Output formats
+            "mot": "s19", "bin": "bin", "src": "c"}  # Output formats
 
     parser = argparse.ArgumentParser(description=description)
 

@@ -15,7 +15,9 @@
     "\/Users\/don\/Code\/Cosmac 1802\/Assembler\/cosmacasm.py",
     "\/Users\/don\/Code\/Cosmac 1802\/Assembler\/test\/test.src",
     "\/Users\/don\/Code\/Cosmac 1802\/Assembler\/test\/test.lst",
-    "\/Users\/don\/Code\/Cosmac 1802\/Assembler\/.flake8"
+    "\/Users\/don\/Code\/Cosmac 1802\/Assembler\/.flake8",
+    "\/Users\/don\/Code\/Cosmac 1802\/Assembler\/Chunker.py",
+    "\/Users\/don\/Code\/Cosmac 1802\/Assembler\/Parser.py"
   ],
   "python.interpreter" : "\/usr\/bin\/python3",
   "workspace.name" : "Cosmac Assembler"
