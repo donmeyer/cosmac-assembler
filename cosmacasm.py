@@ -38,7 +38,7 @@
 
 import os
 import sys
-import optparse
+import argparse
 import re
 
 import Chunker
@@ -1239,10 +1239,10 @@ def assembleFile(src):
 #
 # ----------------------------------------------------------------
 
-def process(filename):
+def process(src):
     global listingDest, hexDest
 
-    rootname, __ = os.path.splitext(filename)
+    rootname, __ = os.path.splitext(src.name)
 
     if displayFlag is True:
         listingDest = sys.stdout
@@ -1252,8 +1252,6 @@ def process(filename):
         listingDest = open(listingFilename, 'w')
         hexFilename = rootname + ".hex"
         hexDest = open(hexFilename, 'w')
-
-    src = open(filename, 'r')
 
     assembleFile(src)
 
@@ -1326,50 +1324,57 @@ def bailout(msg):
         raise Error(msg)
 
 
-def main(argv):
+def auto_int(x):
+    """Simple helper to allow parsing arguments in bases other than 10."""
+    return int(x, 0)
+
+
+def main(argv=None):
     global verbose, sizeLimit, programBase, displayFlag, altSyntax
 
-    usage = """"%prog [options] <file>
-    File is assembly source."""
+    description = """Assemble 1802 source"""
 
-    parser = optparse.OptionParser(usage=usage)
+    parser = argparse.ArgumentParser(description=description)
 
-    parser.add_option("-a", "--altsyntax",
-                      action="store_true", dest="altSyntax", default=False,
-                      help="Alternate assembler syntax (; for comments)")
+    parser.set_defaults(verbose=1)
 
-    parser.add_option("-s", "--size",
-                      action="store", type="int", dest="size", default=None,
-                      help="Maximum size of output. Error if this size is exceeded. (optional)")
+    parser.add_argument("-a", "--altsyntax",
+                        action="store_true", dest="altSyntax", default=False,
+                        help="Alternate assembler syntax (; for comments)")
 
-    parser.add_option("-b", "--base",
-                      action="store", type="int", dest="base", default=0,
-                      help="Base offset of the program image. Default is 0x0000. (optional)")
+    parser.add_argument("-s", "--size",
+                        action="store", type=auto_int, dest="size", default=None,
+                        help="Maximum size of output. Error if this size is exceeded. (optional)")
 
-    parser.add_option("-d", "--display",
-                      action="store_true", dest="display", default=False,
-                      help="Display output on terminal. No files are produced.")
+    parser.add_argument("-b", "--base",
+                        action="store", type=auto_int, dest="base", default=0,
+                        help="Base offset of the program image. Default is 0x0000. (optional)")
 
-    parser.add_option("-n", "--noaction",
-                      action="store_true", dest="noaction", default=False,
-                      help="Simulate the action")
+    parser.add_argument("-d", "--display",
+                        action="store_true", dest="display", default=False,
+                        help="Display output on terminal. No files are produced.")
 
-    parser.add_option("-q", "--quiet",
-                      action="store_const", const=0, dest="verbose",
-                      help="quiet")
+    parser.add_argument("-n", "--noaction",
+                        action="store_true", dest="noaction", default=False,
+                        help="Simulate the action")
 
-    parser.add_option("-v", "--verbose",
-                      action="store_const", const=1, dest="verbose", default=1,
-                      help="verbose [default]")
+    parser.add_argument("-q", "--quiet",
+                        action="store_const", const=0, dest="verbose",
+                        help="quiet")
 
-    parser.add_option("--noisy",
-                      action="store_const", const=2, dest="verbose",
-                      help="noisy")
+    parser.add_argument("-v", "--verbose",
+                        action="store_const", const=1, dest="verbose",
+                        help="verbose [default]")
 
-    (options, args) = parser.parse_args(argv)
+    parser.add_argument("--noisy",
+                        action="store_const", const=2, dest="verbose",
+                        help="noisy")
 
-    logDebug(options)
-    logDebug(args)
+    parser.add_argument("source",
+                        type=argparse.FileType('r'),
+                        metavar="SOURCE-FILE")
+
+    options = parser.parse_args(argv)
 
     verbose = options.verbose
     sizeLimit = options.size
@@ -1377,15 +1382,15 @@ def main(argv):
     displayFlag = options.display
     altSyntax = options.altSyntax
 
+    logDebug(options)
+
     # Get the filename
-    if len(args) > 1:
-        filename = args[1]
+    if options.source is not None:
+        process(options.source)
     else:
         print("No file name given.")
         print(main.__doc__)
         sys.exit(1)
-
-    process(filename)
 
 
 if __name__ == '__main__':
@@ -1394,4 +1399,4 @@ if __name__ == '__main__':
     # sys.exit( main(["cosmacasm", "assembler/test_dc.src"]) or 0 )
     # sys.exit( main(["cosmacasm", "--noisy", "assembler/test/test_dc.src"]) or 0 )
     # sys.exit( main(["cosmacasm", "--noisy", "assembler/test/test_exp.src"]) or 0 )
-    sys.exit(main(sys.argv) or 0)
+    sys.exit(main() or 0)
