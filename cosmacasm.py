@@ -21,6 +21,10 @@
 #
 #
 # ------------------------------------------
+# sudo pip3 install bincopy
+# https://pypi.python.org/pypi/bincopy
+#
+# ------------------------------------------
 # Assemble 1802 source
 #
 # Produce hex file
@@ -44,10 +48,14 @@ import re
 import Chunker
 import Parser
 
+import bincopy
+
 
 listingDest = None
 
 hexDest = None
+
+recDest = None
 
 address = 0
 
@@ -59,7 +67,7 @@ symbols = {}
 
 BYTES_PER_LINE = 6
 
-pgmImage = None        # Byte array (bytearray) storing the program image
+binfile = None      # Program image
 
 conditionalStack = []    # stack of ConditionalBlock objects
 
@@ -855,13 +863,13 @@ def assembleChunk(chunk):
 # This will also deal with breaking the hex bytes flow to the next line if the width is too great.
 #
 def emitCode(startAddr, bytes):
-    global pgmImage
+    global binfile
 
     if startAddr < programBase:
         bailout("Data written to address 0x%04X below the program base of 0x%04X" % (startAddr, programBase))
+
     # Add bytes to the program image
-    end = startAddr + len(bytes)
-    pgmImage[startAddr:end] = bytes
+    binfile.add_binary(bytes, startAddr)
 
     hexStr = ""
     overflow = False
@@ -1212,7 +1220,7 @@ def secondPass(lines):
 
 
 def assembleFile(src):
-    global pgmImage
+    global binfile
 
     lines = src.readlines()
 
@@ -1222,11 +1230,6 @@ def assembleFile(src):
     if sizeLimit:
         if address >= sizeLimit + programBase:
             bailout("Program too large by %d bytes" % ((address - (sizeLimit + programBase))))
-
-    # Set up a byte array to hold the assembled program image.
-    pgmImage = bytearray()
-    for _ in range(address):
-        pgmImage.append(0xFF)    # pad byte
 
     resolveSymbols()
     # if verbose > 1:
@@ -1240,18 +1243,23 @@ def assembleFile(src):
 # ----------------------------------------------------------------
 
 def process(src):
-    global listingDest, hexDest
+    global listingDest, hexDest, recDest, eprom, binfile
+
+    binfile = bincopy.BinFile()
 
     rootname, __ = os.path.splitext(src.name)
 
     if displayFlag is True:
         listingDest = sys.stdout
         hexDest = sys.stdout
+        recDest = sys.stdout
     else:
         listingFilename = rootname + ".lst"
         listingDest = open(listingFilename, 'w')
         hexFilename = rootname + ".hex"
         hexDest = open(hexFilename, 'w')
+        recFilename = rootname + ".ihex"
+        recDest = open(recFilename, 'w')
 
     assembleFile(src)
 
@@ -1267,6 +1275,9 @@ def process(src):
     if hexDest:
         hexDest.close()
 
+    if recDest:
+        recDest.close()
+
 
 def emitListing(text):
     global listingDest
@@ -1276,15 +1287,17 @@ def emitListing(text):
 
 
 def writeHexFile():
-    global hexDest, pgmImage
+    global hexDest, recDest, binfile
 
-    text = dataToHexStrings(pgmImage)
+    data = binfile.as_binary(minimum_address=programBase)
+
+    text = dataToHexStrings(data)
     hexDest.write(text)
+
+    recDest.write(binfile.as_ihex())
 
 
 def dataToHexStrings(data):
-    if programBase > 0:
-        del data[:programBase]
     buf = ""
     bytes = 0
     for b in data:
