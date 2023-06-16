@@ -79,7 +79,7 @@ def process(src_file, addr=0):
     eprom.readfile(filename, addr)
 
 
-def save(dest_filename):
+def save(dest_filename, offset):
     """ Display information about the EPROM image and then optionally write it to the destination.
     """
     print("\n-- EPROM Image --")
@@ -91,13 +91,13 @@ def save(dest_filename):
 
     # Write out the file in a new format
     if output_format == "hex":
-        eprom.write_file_as_raw_hex(dest_filename)
+        eprom.write_file_as_raw_hex(dest_filename, offset)
     elif output_format == "intel":
         eprom.write_file_as_intel_hex(dest_filename)
     elif output_format == "mot":
         eprom.write_file_as_srecords(dest_filename)
     elif output_format == "bin":
-        eprom.write_file_as_binary(dest_filename)
+        eprom.write_file_as_binary(dest_filename, offset)
     elif output_format == "src":
         eprom.write_file_as_c_src(dest_filename)
 
@@ -132,6 +132,10 @@ def main(argv=None):
     parser.add_argument("-a", "--addr",
                         action="store", type=auto_int, default=0,
                         help="Start address for binary or raw-hex input files. (default=0)")
+
+    parser.add_argument("--offset",
+                        action="store", type=auto_int, default=0,
+                        help="Offset for output of binary or raw-hex files. (default=0)")
 
     parser.add_argument("-f", "--format",
                         action="store", dest="output_format",
@@ -190,7 +194,7 @@ def main(argv=None):
     try:
         for fh in options.source:
             process(fh, options.addr)
-        save(dest)
+        save(dest, options.offset)
     except epromimage.Error as error:
         print("Error:", error)
         sys.exit(-1)
