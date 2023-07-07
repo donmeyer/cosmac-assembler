@@ -4,7 +4,7 @@
 
 The output of the assembler is a hex file and a listing file.
 
-By default the hex file is in a raw hex format.
+By default the output file is in a raw hex format.
 
 
 
